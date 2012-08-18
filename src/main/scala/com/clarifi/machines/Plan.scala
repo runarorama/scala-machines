@@ -1,38 +1,98 @@
+// Copyright   :  (C) 2012 Rúnar Bjarnason, Dan Doel, Edward Kmett
+// License     :  BSD-style (see the file LICENSE)
+
 package com.clarifi.machines
 
 import scalaz._
 
 /**
- * You can construct a `Plan`, turning it into a `Machine`.
+ * You can construct a `Plan` and then `compile` it to a `Machine`.
+ * A `Plan[K, I, O, A]` is a specification for a pure `Machine` that reads inputs selected by `K`
+ * with types based on `I`, writes values of type `O`, and has intermediate results of type `A`.
  */
-trait Plan[+K[-_, +_], -I, +O, +A]
-case class Return[+A](a: A) extends Plan[Nothing, Any, Nothing, A]
-case class Emit[+K[-_, +_], -I, +O, +A](head: O, tail: () => Plan[K, I, O, A]) extends Plan[K, I, O, A]
+trait Plan[+K[-_, +_], -I, +O, +A] {
+  def flatMap[L[-X, +Y] >: K[X, Y], J <: I, P >: O, B](
+    f: A => Plan[L, J, P, B]): Plan[L, J, P, B]
+  def orElse[L[-X, +Y] >: K[X, Y], J <: I, P >: O, B >: A](
+    o: => Plan[L, J, P, B]): Plan[L, J, P, B]
+}
+
+/** A pure `Plan`. */
+case class Return[+A](a: A) extends Plan[Nothing, Any, Nothing, A] {
+  def flatMap[K[-X, +Y] >: Nothing, I <: Any, O >: Nothing, B](
+    f: A => Plan[K, I, O, B]): Plan[K, I, O, B] = f(a)
+  def orElse[K[-X, +Y] >: Nothing, I <: Any, O >: Nothing, B >: A](
+    o: => Plan[K, I, O, B]): Plan[K, I, O, B] = this
+}
+
+/** Output a result. */
+case class Emit[+K[-_, +_], -I, +O, +A](head: O, tail: () => Plan[K, I, O, A]) extends Plan[K, I, O, A] {
+  def flatMap[L[-X, +Y] >: K[X, Y], J <: I, P >: O, B](
+    f: A => Plan[L, J, P, B]): Plan[L, J, P, B] =
+    Emit(head, () => tail() flatMap f)
+  def orElse[L[-X, +Y] >: K[X, Y], J <: I, P >: O, B >: A](
+    o: => Plan[L, J, P, B]): Plan[L, J, P, B] =
+    Emit(head, () => tail() orElse o)
+}
+
+/** Wait for input. */
 case class Await[+K[-_, +_], -I, +O, +A, Z](
   k: Z => Plan[K, I, O, A],
   success: K[I, Z],
-  failure: () => Plan[K, I, O, A]) extends Plan[K, I, O, A]
-case object Fail extends Plan[Nothing, Any, Nothing, Nothing]
+  failure: () => Plan[K, I, O, A]) extends Plan[K, I, O, A] {
+  def flatMap[L[-X, +Y] >: K[X, Y], J <: I, P >: O, B](
+    f: A => Plan[L, J, P, B]): Plan[L, J, P, B] =
+    Await(k andThen (_ flatMap f), success, () => failure() flatMap f)
+  def orElse[L[-X, +Y] >: K[X, Y], J <: I, P >: O, B >: A](
+    o: => Plan[L, J, P, B]): Plan[L, J, P, B] =
+    Await((x: Z) => k(x) orElse o, success, () => o)
+}
+
+/** A plan that fails. */
+case object Fail extends Plan[Nothing, Any, Nothing, Nothing] {
+  def flatMap[K[-X, +Y] >: Nothing, I <: Any, O >: Nothing, B](
+    f: Nothing => Plan[K, I, O, B]): Plan[K, I, O, B] = Fail
+  def orElse[K[-X, +Y] >: Nothing, I <: Any, O >: Nothing, A >: Nothing](
+    o: => Plan[K, I, O, A]): Plan[K, I, O, A] = Fail
+}
 
 object Plan {
   implicit def planInstance[K[-_, +_], I, O, A]: MonadPlus[({type λ[+α] = Plan[K, I, O, α]})#λ] =
     new MonadPlus[({type λ[+α] = Plan[K, I, O, α]})#λ] {
-      def bind[A, B](m: Plan[K, I, O, A])(f: A => Plan[K, I, O, B]) = m match {
-        case Return(a) => f(a)
-        case Emit(head, tail) => Emit(head, () => bind(tail())(f))
-        case Await(k, s, fail) => Await(k andThen (bind(_)(f)), s, () => bind(fail())(f))
-        case Fail => Fail
-      }
+      def bind[A, B](m: Plan[K, I, O, A])(f: A => Plan[K, I, O, B]) = m flatMap f
       def point[A](a: => A) = Return(a)
       def empty[A] = Fail
-      def plus[A](m1: Plan[K, I, O, A], m2: => Plan[K, I, O, A]) = m1 match {
-        case Await(k, s, _) => Await(k andThen (plus(_, m2)), s, () => m2)
-        case Emit(head, tail) => Emit(head, () => plus(tail(), m2))
-        case Fail => m2
-        case x => x
-      }
+      def plus[A](m1: Plan[K, I, O, A], m2: => Plan[K, I, O, A]) = m1 orElse m2
     }
 
+  /** The empty plan that just fails. */
+  def fail: () => Plan[Nothing, Any, Nothing, Nothing] = () => Fail
+
+  /** Emits the value `a`. */
   def emit[A](a: A): Plan[Nothing, Any, A, Unit] = Emit(a, () => Return(()))
-  def await[A]: Plan[Function1, A, Nothing, A] = Await((a: A) => Return(a), x => x, () => Fail)
+
+  /** Awaits an input of type `A`. */
+  def await[A]: Plan[Function1, A, Nothing, A] = Await((a: A) => Return(a), x => x, fail)
+
+  /** A natural transformation from `K[O, _]` to `L[I, _]` */
+  trait Fitting[-K[-_, +_], +L[-_, +_], -I, +O] {
+    def apply[R](f: K[O, R]): L[I, R]
+  }
+
+  /**
+   * Many combinators are parameterized on the choice of `Handle`.
+   * This acts like an input stream selector.
+   *
+   * For example:
+   * {{{
+   * L : Handle[Merge, (A, B), A]
+   * R : Handle[Merge, (A, B), B]
+   * }}}
+   */
+  type Handle[+K[-_, +_], -I, +O] = Fitting[Function1, K, I, O]
+
+  /** Waits for input on a particular `Handle`. */
+  def awaits[K[-_, +_], I, O, J](f: Handle[K, I, J]): Plan[K, I, O, J] =
+    Await((a: J) => Return(a), f(x => x), fail)
+
 }
