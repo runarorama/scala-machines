@@ -45,6 +45,19 @@ sealed trait Machine[+K[-_, +_], -I, +O] {
     }
     loop(this, z)
   }
+
+  def andThen[B](mp: Process[O, B]): Machine[K, I, B] = Machine(mp.step match {
+    case Yield(o, xs) => Yield(o, () => this andThen xs())
+    case Stop => Stop
+    case v@Expect(f, kf, ff) => this.step match {
+      case Stop => (Machine.stopped andThen ff()).step
+      case Yield(o, xs) => (xs() andThen kf.andThen(f).apply(o)).step
+      case Expect(g, kg, fg) => {
+        val mv = Machine(v)
+        Expect(g andThen (_ andThen mv), kg, () => fg() andThen mv)
+      }
+    }
+  })
 }
 
 object Machine {
@@ -80,6 +93,16 @@ object Machine {
     }
 
   import Plan._
+
+  implicit object ProcessCategory extends Category[Process] {
+    def id[A]: Process[A, A] = (for {
+      i <- await[A]
+      o <- emit(i)
+    } yield o).repeatedly
+
+    def compose[A, B, C](m: Process[B, C], n: Process[A, B]): Process[A, C] =
+      n andThen m
+  }
 
   def pass[K[-_,+_], I, O](h: Handle[K, I, O]): Machine[K, I, O] =
     awaits(h) flatMap { x => emit(x) } repeatedly

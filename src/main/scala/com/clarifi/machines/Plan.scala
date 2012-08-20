@@ -16,6 +16,11 @@ trait Plan[+K[-_, +_], -I, +O, +A] {
   def orElse[L[-X, +Y] >: K[X, Y], J <: I, P >: O, B >: A](
     o: => Plan[L, J, P, B]): Plan[L, J, P, B]
 
+  def map[B](f: A => B): Plan[K, I, O, B] = flatMap(x => Return(f(x)))
+
+  def contramap[L[-X,+Y] >: K[X, Y], J](f: J => I)(implicit L: Profunctor[L]): Plan[L, J, O, A] =
+    Plan.contramapAux[L, J, I, O, A](this)(f)
+
   def >>[L[-X, +Y] >: K[X, Y], J <: I, P >: O, B](next: => Plan[L, J, P, B]): Plan[L, J, P, B] = flatMap { _ => next }
 
   def compile: Machine[K, I, O] = Plan.compileAux(this)
@@ -69,7 +74,7 @@ case object Fail extends Plan[Nothing, Any, Nothing, Nothing] {
 }
 
 object Plan {
-  implicit def planInstance[K[-_, +_], I, O, A]: MonadPlus[({type λ[+α] = Plan[K, I, O, α]})#λ] =
+  implicit def planInstance[K[-_, +_], I, O]: MonadPlus[({type λ[α] = Plan[K, I, O, α]})#λ] =
     new MonadPlus[({type λ[+α] = Plan[K, I, O, α]})#λ] {
       def bind[A, B](m: Plan[K, I, O, A])(f: A => Plan[K, I, O, B]) = m flatMap f
       def point[A](a: => A) = Return(a)
@@ -107,9 +112,8 @@ object Plan {
   def awaits[K[-_, +_], I, O, J](f: Handle[K, I, J]): Plan[K, I, O, J] =
     Await((a: J) => Return(a), f(x => x), fail)
 
-  // Not sure why these don't work in the class directly, but they don't
-  // 1) matching on 'Emit' generates errors,
-  // Doing it this way just works for some reason.
+  // These `Aux` functions crash in 2.9.2 if they are defined directly on the class.
+  // Related to a bug fixed in 2.10.0 regarding higher-kinded type checking
   private def compileAux[K[-_, +_], I, O, A](p: Plan[K, I, O, A]): Machine[K, I, O] =
     p match {
       case Return(_)      => Machine(Stop)
@@ -124,5 +128,13 @@ object Plan {
       case Emit(h, t)     => Machine(Yield(h, () => beforeAux(t(), m)))
       case Await(k, s, f) => Machine(Expect(k andThen (beforeAux(_, m)), s, () => beforeAux(f(),m)))
       case Fail           => Machine(Stop)
+    }
+
+  private def contramapAux[K[-_, +_], J, I, O, A](p: Plan[K, I, O, A])(f: J => I)(implicit K: Profunctor[K]): Plan[K, J, O, A] =
+    p match {
+      case Return(x) => Return(x)
+      case Emit(o, xs) => Emit(o, () => contramapAux(xs())(f))
+      case Await(k, succ, fail) => Await(k andThen (contramapAux(_)(f)), K.lmap(succ)(f), () => contramapAux(fail())(f))
+      case Fail => Fail
     }
 }
