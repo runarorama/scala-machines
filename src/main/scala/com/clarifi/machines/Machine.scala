@@ -58,6 +58,13 @@ sealed trait Machine[+K[-_, +_], -I, +O] {
       }
     }
   })
+
+  def fitting[L[-_, +_], J](g: Fitting[K, L, J, I]): Machine[L, J, O] =
+    Machine(this.step match {
+      case Stop            => Stop
+      case Yield(o, next)  => Yield(o, () => next() fitting g)
+      case Expect(k, s, f) => Expect(k andThen (_ fitting g), g(s), () => f() fitting g)
+    })
 }
 
 object Machine {

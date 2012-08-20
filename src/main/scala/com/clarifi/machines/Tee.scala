@@ -25,6 +25,8 @@ object T {
 object Tee {
   import ProcessCategory._
 
+  import Plan._
+
   def tee[A, AA, B, BB, C](ma: Process[A, AA], mb: Process[B, BB], m: Tee[AA, BB, C]): Tee[A, B, C] =
     Machine(m.step match {
       case Stop => Stop
@@ -53,8 +55,17 @@ object Tee {
   def addR[A, B, C, D](p: Process[B, C], t: Tee[A, C, D]): Tee[A, B, D] =
     tee(id, p, t)
 
-  /*def capL[A, B, C](s: Source[A], t: Tee[A, B, C]): Process[B, C] =
-    cappedT(addL(s, t))*/
+  def capL[A, B, C](s: Source[A], t: Tee[A, B, C]): Process[B, C] =
+    addL(s, t) fitting cappedT
 
+  def capR[A, B, C](s: Source[B], t: Tee[A, B, C]): Process[A, C] =
+    addR(s, t) fitting cappedT
 
+  def cappedT[A]: Fitting[T, Function1, A, Either[A, A]] =
+    new Fitting[T, Function1, A, Either[A, A]] {
+      def apply[R](t: T[Either[A, A], R]): A => R = t match {
+        case L(f) => f
+        case R(f) => f
+      }
+    }
 }

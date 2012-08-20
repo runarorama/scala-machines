@@ -91,11 +91,6 @@ object Plan {
   /** Awaits an input of type `A`. */
   def await[A]: Plan[Function1, A, Nothing, A] = Await((a: A) => Return(a), x => x, fail)
 
-  /** A natural transformation from `K[O, _]` to `L[I, _]` */
-  trait Fitting[-K[-_, +_], +L[-_, +_], -I, +O] {
-    def apply[R](f: K[O, R]): L[I, R]
-  }
-
   /**
    * Many combinators are parameterized on the choice of `Handle`.
    * This acts like an input stream selector.
