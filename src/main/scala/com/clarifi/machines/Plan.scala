@@ -15,6 +15,13 @@ trait Plan[+K[-_, +_], -I, +O, +A] {
     f: A => Plan[L, J, P, B]): Plan[L, J, P, B]
   def orElse[L[-X, +Y] >: K[X, Y], J <: I, P >: O, B >: A](
     o: => Plan[L, J, P, B]): Plan[L, J, P, B]
+
+  def compile: Machine[K, I, O] = Plan.compileAux(this)
+
+  def before[L[-_,+_]>:K[_,_],J<:I,P>:O](m: => Machine[L, J, P]): Machine[L, J, P] =
+    Plan.beforeAux(this, m)
+
+  def repeatedly: Machine[K, I, O] = Plan.repeatedlyAux(this)
 }
 
 /** A pure `Plan`. */
@@ -95,4 +102,28 @@ object Plan {
   def awaits[K[-_, +_], I, O, J](f: Handle[K, I, J]): Plan[K, I, O, J] =
     Await((a: J) => Return(a), f(x => x), fail)
 
+  // Not sure why these don't work in the class directly, but they don't
+  // 1) matching on 'Emit' generates errors,
+  // 2) repeatedly and before have variance issues
+  // Doing it this way just works for some reason.
+  private def compileAux[K[-_, +_], I, O, A](p: Plan[K, I, O, A]): Machine[K, I, O] =
+    p match {
+      case Return(_)      => Machine(Stop)
+      case Emit(h, t)     => Machine(Yield(h, () => t() compile))
+      case Await(k, s, f) => Machine(Expect(k andThen (_ compile), s, () => f() compile))
+      case Fail           => Machine(Stop)
+    }
+
+  private def beforeAux[K[-_, +_], I, O, A](p: Plan[K, I, O, A], m: => Machine[K, I, O]): Machine[K, I, O] =
+    p match {
+      case Return(_)      => m
+      case Emit(h, t)     => Machine(Yield(h, () => beforeAux(t(), m)))
+      case Await(k, s, f) => Machine(Expect(k andThen (beforeAux(_, m)), s, () => beforeAux(f(),m)))
+      case Fail           => Machine(Stop)
+    }
+
+  private def repeatedlyAux[K[-_, +_], I, O, A](p: Plan[K, I, O, A]): Machine[K, I, O] = {
+    lazy val r : Machine[K, I, O] = beforeAux(p, r)
+    r
+  }
 }

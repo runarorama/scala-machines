@@ -78,4 +78,11 @@ object Machine {
         })
       def rmap[A, B, C](k: Machine[K, A, B])(f: B => C): Machine[K, A, C] = k map f
     }
+
+//  import Plan._
+
+//  def pass[K[-_,+_], I, O](h: Handle[K, I, O]): Machine[K, I, O] =
+//    awaits(h) flatMap { x => emit(x) } repeatedly
+
+//  def stopped[K[-_,+_], I, O]: Machine[K, I, O] = Machine(Stop)
 }
