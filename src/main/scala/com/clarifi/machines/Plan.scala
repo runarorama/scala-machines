@@ -16,6 +16,8 @@ trait Plan[+K[-_, +_], -I, +O, +A] {
   def orElse[L[-X, +Y] >: K[X, Y], J <: I, P >: O, B >: A](
     o: => Plan[L, J, P, B]): Plan[L, J, P, B]
 
+  def >>[L[-X, +Y] >: K[X, Y], J <: I, P >: O, B](next: => Plan[L, J, P, B]): Plan[L, J, P, B] = flatMap { _ => next }
+
   def compile: Machine[K, I, O] = Plan.compileAux(this)
 
   def before[L[-_,+_]>:K[_,_],J<:I,P>:O](m: => Machine[L, J, P]): Machine[L, J, P] =

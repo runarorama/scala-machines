@@ -1,10 +1,6 @@
 package com.clarifi
 
-import scalaz._
-import Free._
-
-
-
 package object machines {
+  type Process[-I, +O] = Machine[Function1, I, O]
 }
 
