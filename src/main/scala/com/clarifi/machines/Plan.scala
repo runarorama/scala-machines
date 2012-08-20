@@ -20,10 +20,13 @@ trait Plan[+K[-_, +_], -I, +O, +A] {
 
   def compile: Machine[K, I, O] = Plan.compileAux(this)
 
-  def before[L[-_,+_]>:K[_,_],J<:I,P>:O](m: => Machine[L, J, P]): Machine[L, J, P] =
+  def before[L[-X,+Y]>:K[X,Y],J<:I,P>:O](m: => Machine[L, J, P]): Machine[L, J, P] =
     Plan.beforeAux(this, m)
 
-  def repeatedly: Machine[K, I, O] = Plan.repeatedlyAux(this)
+  def repeatedly: Machine[K, I, O] = {
+    lazy val r : Machine[K, I, O] = this before r
+    r
+  }
 }
 
 /** A pure `Plan`. */
@@ -106,7 +109,6 @@ object Plan {
 
   // Not sure why these don't work in the class directly, but they don't
   // 1) matching on 'Emit' generates errors,
-  // 2) repeatedly and before have variance issues
   // Doing it this way just works for some reason.
   private def compileAux[K[-_, +_], I, O, A](p: Plan[K, I, O, A]): Machine[K, I, O] =
     p match {
@@ -123,9 +125,4 @@ object Plan {
       case Await(k, s, f) => Machine(Expect(k andThen (beforeAux(_, m)), s, () => beforeAux(f(),m)))
       case Fail           => Machine(Stop)
     }
-
-  private def repeatedlyAux[K[-_, +_], I, O, A](p: Plan[K, I, O, A]): Machine[K, I, O] = {
-    lazy val r : Machine[K, I, O] = beforeAux(p, r)
-    r
-  }
 }
