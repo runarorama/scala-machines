@@ -65,6 +65,12 @@ sealed trait Machine[+K[-_, +_], -I, +O] {
       case Yield(o, next)  => Yield(o, () => next() fitting g)
       case Expect(k, s, f) => Expect(k andThen (_ fitting g), g(s), () => f() fitting g)
     })
+
+  def complete: Stream[O] = step match {
+    case Stop            => Stream()
+    case Yield(o, next)  => o +: next().complete
+    case Expect(_, _, f) => f().complete
+  }
 }
 
 object Machine {
