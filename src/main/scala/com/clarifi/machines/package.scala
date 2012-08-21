@@ -23,6 +23,8 @@ package object machines {
 
   type Tee[-A, -B, +C] = Machine[T, Either[A, B], C]
 
+  type Wye[-I, -J, +O] = Machine[Y, Either[I, J], O]
+
   def traversePlan_[F[_], K[-_, +_], I, O, A](as: F[A])(f: A => Plan[K, I, O, Unit])(implicit F: Foldable[F]): Plan[K, I, O, Unit] =
     as.traverse_[({type λ[α] = Plan[K, I, O, α]})#λ](f)(planInstance[K, I, O])
 
