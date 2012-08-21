@@ -68,4 +68,11 @@ object Tee {
         case R(f) => f
       }
     }
+
+  def left[A]: Handle[T, A, A] = new Fitting[Function1, T, A, A] {
+    def apply[R](f: A => R) = L(f)
+  }
+  def right[A]: Handle[T, A, A] = new Fitting[Function1, T, A, A] {
+    def apply[R](f: A => R) = R(f)
+  }
 }
