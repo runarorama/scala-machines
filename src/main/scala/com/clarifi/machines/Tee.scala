@@ -69,10 +69,10 @@ object Tee {
       }
     }
 
-  def left[A]: Handle[T, A, A] = new Fitting[Function1, T, A, A] {
+  def left[A]: Handle[T, Either[A, Nothing], A] = new Fitting[Function1, T, Either[A, Nothing], A] {
     def apply[R](f: A => R) = L(f)
   }
-  def right[A]: Handle[T, A, A] = new Fitting[Function1, T, A, A] {
+  def right[A]: Handle[T, Either[Nothing, A], A] = new Fitting[Function1, T, Either[Nothing, A], A] {
     def apply[R](f: A => R) = R(f)
   }
 }
