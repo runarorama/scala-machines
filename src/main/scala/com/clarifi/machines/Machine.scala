@@ -2,6 +2,7 @@ package com.clarifi.machines
 
 import scalaz._
 import scalaz.syntax.arrow._
+import Scalaz._
 
 object Machine {
   implicit def machineFunctor[K[-_, +_], I]: Functor[({type λ[+α] = Machine[K, I, α]})#λ] with
@@ -36,4 +37,7 @@ object Machine {
     awaits(h) flatMap { x => emit(x) } repeatedly
 
   def stopped[K[-_,+_], I, O]: Machine[K, I, O] = Stop
+
+  def flattened[K[-_,+_], I](h: Handle[K, List[I], List[I]]): Machine[K, List[I], I] =
+    awaits(h) flatMap (is => traversePlan_(is)(emit)) repeatedly
 }

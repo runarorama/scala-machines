@@ -41,6 +41,9 @@ trait Plan[+K[-_, +_], -I, +O, +A] {
     r
   }
 
+  def iterate[L[-X,+Y] >: K[X, Y], J <: I, P >: O, B >: A](f: B => Plan[L, J, P, B]): Machine[L, J, P] =
+    Plan.iterateAux(f)(this)
+
   def fitting[L[-_, +_], J](g: Fitting[K, L, J, I]): Plan[L, J, O, A] = Plan.fittingAux(this,g)
 
   def andThen[P](p: Process[O, P]): Plan[K, I, P, A] = Plan.andThenAux(this, p)
@@ -180,4 +183,11 @@ object Plan {
        case Await(l, t, g) => Await(l andThen (andThenAux(_, p)), t, () => andThenAux(g(), p))
      }
    }
+
+  private def iterateAux[K[-_, +_], I, O, A](f: A => Plan[K, I, O, A])(p: Plan[K, I, O, A]): Machine[K, I, O] = p match {
+    case Emit(o, xs) => Emit(o, () => iterateAux(f)(xs()))
+    case Stop => Stop
+    case Await(k, s, fail) => Await(k andThen (iterateAux(f)(_)), s, () => iterateAux(f)(fail()))
+    case Return(a) => iterateAux(f)(f(a))
+  }
 }

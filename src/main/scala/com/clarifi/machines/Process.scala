@@ -45,12 +45,12 @@ object Process {
   }
 
   def grouping[A](p: (A, A) => Boolean): Process[A, List[A]] = {
-    def collect(acc: List[A], x: A): Plan[Function1, A, List[A], Unit] =
+    def collect(acc: List[A], x: A): Process[A, List[A]] =
       await[A] orElse (emit(acc reverse) >> Stop) flatMap { y =>
         if (p(x, y)) collect(y::acc, x)
         else emit(acc reverse) >> collect(List(), y)
       }
-    await[A] flatMap (collect(List(), _)) compile
+    await[A] flatMap (collect(List(), _))
   }
 
   def supply[F[_], A, B](xs: F[A])(p: Process[A, B])(implicit F: Foldable[F]): Process[A, B] =

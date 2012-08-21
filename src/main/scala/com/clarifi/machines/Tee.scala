@@ -6,10 +6,12 @@ import Machine._
 
 sealed trait T[-I, +O] {
   def map[B](f: O => B): T[I, B]
+  //def lmap[B](f: B => I): T[B, O]
 }
 
 case class L[-I, +O](k: I => O) extends T[Either[I, Any], O] {
   def map[B](f: O => B): T[Either[I, Any], B] = L(k andThen f)
+  //def lmap[B](f: B => Either[I, Any]): T[Either]
 }
 
 case class R[-I, +O](k: I => O) extends T[Either[Any, I], O] {
@@ -24,8 +26,14 @@ object T {
 
 object Tee {
   import ProcessCategory._
-
   import Plan._
+
+  import scalaz.syntax.order._
+
+  /* def mergeOuter[A, B, K:Order]: Tee[(K, List[A]), (K, List[B]), These[A, B]] =
+    awaits(left[(K, List[A])]) flatMap {
+      case (k, as) => sys.error("sr")
+    } orElse flattened(right[List[B]]).inmap(_._2) */
 
   def tee[A, AA, B, BB, C](ma: Process[A, AA], mb: Process[B, BB], m: Tee[AA, BB, C]): Tee[A, B, C] =
     m match {
