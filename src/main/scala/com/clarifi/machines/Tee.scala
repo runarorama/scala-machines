@@ -31,21 +31,21 @@ object Tee {
     Machine(m.step match {
       case Stop => Stop
       case Yield(o, k) => Yield(o, () => tee(ma, mb, k()))
-      case v@Expect(f, L(kf), ff) => ma.step match {
+      case Expect(f, L(kf), ff) => ma.step match {
         case Stop => tee(stopped, mb, ff()).step
         case Yield(a, k) => tee(k(), mb, f(kf(a))).step
-        case u@Expect(g, kg, fg) => Expect[T, Either[A, B], Tee[A, B, C], Tee[A, B, C]](
+        case Expect(g, kg, fg) => Expect[T, Either[A, B], Tee[A, B, C], Tee[A, B, C]](
                                          x => x,
-                                         L(a => tee(g(kg(a)), mb, Machine(v))),
-                                         () => tee(fg(), mb, Machine(v)))
+                                         L(a => tee(g(kg(a)), mb, m)),
+                                         () => tee(fg(), mb, m))
       }
-      case v@Expect(f, R(kf), ff) => mb.step match {
+      case Expect(f, R(kf), ff) => mb.step match {
         case Stop => tee(ma, stopped, ff()).step
         case Yield(b, k) => tee(ma, k(), f(kf(b))).step
-        case u@Expect(g, kg, fg) => Expect[T, Either[A, B], Tee[A, B, C], Tee[A, B, C]](
+        case Expect(g, kg, fg) => Expect[T, Either[A, B], Tee[A, B, C], Tee[A, B, C]](
                                          x => x,
-                                         R((b: B) => tee(ma, g(kg(b)), Machine(v))),
-                                         () => tee(ma, fg(), Machine(v)))
+                                         R((b: B) => tee(ma, g(kg(b)), m)),
+                                         () => tee(ma, fg(), m))
       }
     })
 
