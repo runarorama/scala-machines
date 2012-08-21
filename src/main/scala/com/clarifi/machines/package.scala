@@ -17,6 +17,8 @@ package object machines {
     def apply(ma: P[K, I, O, A0]) = ma
   }
 
+  type Machine[+K[-_,+_], -I, +O] = Plan[K, I, O, Nothing]
+
   type Process[-I, +O] = Machine[Function1, I, O]
 
   type Source[+O] = Machine[Nothing, Any, O]

@@ -1,6 +1,6 @@
 package com.clarifi.machines
 
-sealed trait Profunctor[K[-_, +_]] {
+trait Profunctor[K[-_, +_]] {
   def lmap[A, B, C](k: K[A, B])(f: C => A): K[C, B]
   def rmap[A, B, C](k: K[A, B])(f: B => C): K[A, C]
 }

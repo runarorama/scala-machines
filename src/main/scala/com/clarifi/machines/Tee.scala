@@ -28,26 +28,26 @@ object Tee {
   import Plan._
 
   def tee[A, AA, B, BB, C](ma: Process[A, AA], mb: Process[B, BB], m: Tee[AA, BB, C]): Tee[A, B, C] =
-    Machine(m.step match {
+    m match {
       case Stop => Stop
-      case Yield(o, k) => Yield(o, () => tee(ma, mb, k()))
-      case Expect(f, L(kf), ff) => ma.step match {
-        case Stop => tee(stopped, mb, ff()).step
-        case Yield(a, k) => tee(k(), mb, f(kf(a))).step
-        case Expect(g, kg, fg) => Expect[T, Either[A, B], Tee[A, B, C], Tee[A, B, C]](
+      case Emit(o, k) => Emit(o, () => tee(ma, mb, k()))
+      case Await(f, L(kf), ff) => ma match {
+        case Stop => tee(stopped, mb, ff())
+        case Emit(a, k) => tee(k(), mb, f(kf(a)))
+        case Await(g, kg, fg) => Await[T, Either[A, B], C, Nothing, Tee[A, B, C]](
                                          x => x,
                                          L(a => tee(g(kg(a)), mb, m)),
                                          () => tee(fg(), mb, m))
       }
-      case Expect(f, R(kf), ff) => mb.step match {
-        case Stop => tee(ma, stopped, ff()).step
-        case Yield(b, k) => tee(ma, k(), f(kf(b))).step
-        case Expect(g, kg, fg) => Expect[T, Either[A, B], Tee[A, B, C], Tee[A, B, C]](
+      case Await(f, R(kf), ff) => mb match {
+        case Stop => tee(ma, stopped, ff())
+        case Emit(b, k) => tee(ma, k(), f(kf(b)))
+        case Await(g, kg, fg) => Await[T, Either[A, B], C, Nothing, Tee[A, B, C]](
                                          x => x,
                                          R((b: B) => tee(ma, g(kg(b)), m)),
                                          () => tee(ma, fg(), m))
       }
-    })
+    }
 
   def addL[A, B, C, D](p: Process[A, B], t: Tee[B, C, D]): Tee[A, C, D] =
     tee(p, id, t)
