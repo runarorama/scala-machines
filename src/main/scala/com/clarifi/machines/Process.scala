@@ -63,7 +63,4 @@ object Process {
       }
     await[A] flatMap (collect(List(), _))
   }
-
-  def supply[F[_], A, B](xs: F[A])(p: Process[A, B])(implicit F: Foldable[F]): Process[A, B] =
-    prepended(xs) andThen p
 }

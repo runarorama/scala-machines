@@ -12,8 +12,5 @@ object Source {
 
   def source[F[_], O](os: F[O])(implicit F: Foldable[F]): Source[O] =
     traversePlan_(os)(emit).compile
-
-  def cap[A, B](l: Process[A, B], r: Source[A]): Source[B] =
-    r andThen l
 }
 

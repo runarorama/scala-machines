@@ -13,7 +13,8 @@ object Test {
     val l1 = List(1 -> List(1,2,3), 3 -> List(3,4,5), 4 -> List(6,7,8,9))
     val l2 = List(1 -> List(0,1,2), 2 -> List(3,4,5), 4 -> List(1,2,3))
 
-    println(cap(capL(source(l1),mergeOuter[Int,Int,Int]), source(l2)).foldMap(List(_)))
+    println(mergeOuter[Int,Int,Int].capL(source(l1)).cap(source(l2)).foldMap(List(_)))
+    println("wat")
   }
 }
 

@@ -91,18 +91,6 @@ object Tee {
     }
   }
 
-  def addL[A, B, C, D](p: Process[A, B], t: Tee[B, C, D]): Tee[A, C, D] =
-    tee(p, id, t)
-
-  def addR[A, B, C, D](p: Process[B, C], t: Tee[A, C, D]): Tee[A, B, D] =
-    tee(id, p, t)
-
-  def capL[A, B, C](s: Source[A], t: Tee[A, B, C]): Process[B, C] =
-    addL(s, t) inmap cappedT
-
-  def capR[A, B, C](s: Source[B], t: Tee[A, B, C]): Process[A, C] =
-    addR(s, t) inmap cappedT
-
   def cappedT[A](t: T[A, A]): S[A] = t.fold(Fun(_), Fun(_))
 
   def left[A]: Handle[T[A, Any], A] =
