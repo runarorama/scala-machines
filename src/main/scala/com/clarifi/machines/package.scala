@@ -25,7 +25,7 @@ package object machines {
 
   type Tee[-A, -B, +C] = Machine[T[A, B], C]
 
-//  type Wye[-I, -J, +O] = Machine[({ type λ[+α] = Y[I, J, α]})#λ, O]
+  type Wye[-I, -J, +O] = Machine[Y[I, J], O]
 
   def traversePlan_[F[_], K <: Covariant, O, A](as: F[A])(f: A => Plan[K, O, Unit])(implicit F: Foldable[F]): Plan[K, O, Unit] =
     as.traverse_[({type λ[α] = Plan[K, O, α]})#λ](f)(planInstance[K, O])
