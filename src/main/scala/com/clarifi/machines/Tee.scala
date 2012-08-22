@@ -7,24 +7,30 @@ import Machine._
 sealed trait T[-I, -J] extends Covariant {
   def lmap[B](h: B => I): T[B, J]
   def rmap[B](h: B => J): T[I, B]
+
+  def fold[R](kl: (I => Ty) => R, kr: (J => Ty) => R): R
 }
 
-case class L[-I, -O](f: I => O) extends T[I, Any] {
-  type Ty >: O
+case class L[-I, O](f: I => O) extends T[I, Any] {
+  type Ty = O
 
   def lmap[B](h: B => I)   = L(f compose h)
   def rmap[B](h: B => Any) = this
 
   def map[U](h: Ty => U) = L(f andThen h)
+
+  def fold[R](kl: (I => Ty) => R, kr: (Any => Ty) => R): R = kl(f)
 }
 
-case class R[-J, -O](f: J => O) extends T[Any, J] {
-  type Ty >: O
+case class R[-J, O](f: J => O) extends T[Any, J] {
+  type Ty = O
 
   def lmap[B](h: B => Any) = this
   def rmap[B](h: B => J)   = R(f compose h)
 
   def map[U](h: Ty => U) = R(f andThen h)
+
+  def fold[R](kl: (Any => Ty) => R, kr: (J => Ty) => R): R = kr(f)
 }
 
 object Tee {
@@ -42,26 +48,28 @@ object Tee {
     m match {
       case Stop => Stop
       case Emit(o, k) => Emit(o, () => tee(ma, mb, k()))
-      case Await(k, L(s), f) => ma match {
-        case Stop          => Stop
-        case Emit(a, next) => tee(next(), mb, k(s(a)))
-        case Await(g, kg, fg) =>
-          Await(
-            (maa: Process[A, AA]) => tee(maa, mb, m),
-            L(a => g(kg(a))),
-            () => tee(fg(), mb, m)
-          )
-      }
-      case Await(k, R(s), f) => mb match {
-        case Stop         => Stop
-        case Emit(b, next) => tee(ma, next(), k(s(b)))
-        case Await(g, kg, fg) =>
-          Await(
-            (mbb: Process[B, BB]) => tee(ma, mbb, m),
-            R((b: B) => g(kg(b))),
-            () => tee(ma, fg(), m)
-          )
-      }
+      case Await(k, s, f) => s fold (
+        kl => ma match {
+          case Stop          => Stop
+          case Emit(a, next) => tee(next(), mb, k(kl(a)))
+          case Await(g, kg, fg) =>
+            Await(
+              (maa: Process[A, AA]) => tee(maa, mb, m),
+              L(a => g(kg(a))),
+              () => tee(fg(), mb, m)
+            )
+          },
+        kr => mb match {
+          case Stop         => Stop
+          case Emit(b, next) => tee(ma, next(), k(kr(b)))
+          case Await(g, kg, fg) =>
+            Await(
+              (mbb: Process[B, BB]) => tee(ma, mbb, m),
+              R((b: B) => g(kg(b))),
+              () => tee(ma, fg(), m)
+            )
+        }
+      )
     }
   }
 
@@ -77,10 +85,7 @@ object Tee {
   def capR[A, B, C](s: Source[B], t: Tee[A, B, C]): Process[A, C] =
     addR(s, t) inmap cappedT
 
-  def cappedT[A](t: T[A, A]): S[A] = t match {
-    case L(f) => Fun(f)
-    case R(f) => Fun(f)
-  }
+  def cappedT[A](t: T[A, A]): S[A] = t.fold(Fun(_), Fun(_))
 
   def left[A]: Handle[T[A, Any], A] =
     new Handle[T[A, Any], A] {
