@@ -11,8 +11,8 @@ sealed trait S[-I] extends Covariant {
   def apply(i: I): X
 }
 
-case class Fun[-I,O](f: I => O) extends S[I] {
-  type X = O
+case class Fun[-I,-O](f: I => O) extends S[I] {
+  type X >: O
   def apply(i: I) = f(i)
 }
 

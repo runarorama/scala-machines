@@ -11,22 +11,18 @@ sealed trait T[-I, -J] extends Covariant {
   def fold[R](kl: (I => X) => R, kr: (J => X) => R): R
 }
 
-case class L[-I, O](f: I => O) extends T[I, Any] {
-  type X = O
+case class L[-I, -O](f: I => O) extends T[I, Any] {
+  type X >: O
 
   def lmap[B](h: B => I)   = L(f compose h)
   def rmap[B](H: B => Any) = this
-
-  def fold[R](kl: (I => X) => R, kr: (Any => X) => R) = kl(f)
 }
 
-case class R[-J, O](f: J => O) extends T[Any, J] {
-  type X = O
+case class R[-J, -O](f: J => O) extends T[Any, J] {
+  type X >: O
 
   def lmap[B](h: B => Any) = this
   def rmap[B](h: B => J)   = R(f compose h)
-
-  def fold[R](kl: (Any => X) => R, kr: (J => X) => R) = kr(f)
 }
 
 object Tee {
@@ -44,29 +40,26 @@ object Tee {
     m match {
       case Stop => Stop
       case Emit(o, k) => Emit(o, () => tee(ma, mb, k()))
-      case Await(k, s, f) =>
-        s fold (
-          kl => ma match {
-            case Stop => tee(stopped, mb, f())
-            case Emit(a, next) => tee(next(), mb, k(kl(a)))
-            case Await(g, kg, fg) =>
-              Await(
-                (maa: Process[A, AA]) => tee(maa, mb, m),
-                L(a => g(kg(a))),
-                () => tee(fg(), mb, m)
-              )
-          },
-          kr => mb match {
-            case Stop => tee(ma, stopped, f())
-            case Emit(b, next) => tee(ma, next(), k(kr(b)))
-            case Await(g, kg, fg) =>
-              Await(
-                (mbb: Process[B, BB]) => tee(ma, mbb, m),
-                R((b: B) => g(kg(b))),
-                () => tee(ma, fg(), m)
-              )
-          }
-        )
+      case Await(k, L(s), f) => ma match {
+        case Stop          => Stop
+        case Emit(a, next) => tee(next(), mb, k(s(a)))
+        case Await(g, kg, fg) =>
+          Await(
+            (maa: Process[A, AA]) => tee(maa, mb, m),
+            L(a => g(kg(a))),
+            () => tee(fg(), mb, m)
+          )
+      }
+      case Await(k, R(s), f) => mb match {
+        case Stop         => Stop
+        case Emit(b, next) => tee(ma, next(), k(s(b)))
+        case Await(g, kg, fg) =>
+          Await(
+            (mbb: Process[B, BB]) => tee(ma, mbb, m),
+            R((b: B) => g(kg(b))),
+            () => tee(ma, fg(), m)
+          )
+      }
     }
   }
 
