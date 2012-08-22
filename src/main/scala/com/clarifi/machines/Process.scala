@@ -12,8 +12,8 @@ sealed trait S[-I] extends Covariant {
   def map[U](h: Ty => U) = Fun((i: I) => h(apply(i)))
 }
 
-case class Fun[-I,-O](f: I => O) extends S[I] {
-  type Ty >: O
+case class Fun[-I,O](f: I => O) extends S[I] {
+  type Ty = O
   def apply(i: I) = f(i)
 }
 
@@ -30,10 +30,10 @@ object Process {
     } yield ()) repeatedly
 
   def dropping[A](n: Int): Process[A, A] =
-    planInstance.replicateM_(n, await[A]) >> id
+    await[A].replicateM_(n) >> id
 
   def taking[A](n: Int): Process[A, A] =
-    planInstance.replicateM_(n, await[A] flatMap emit) compile
+    (await[A] flatMap emit).replicateM_(n).compile
 
   def takingWhile[A](p: A => Boolean): Process[A, A] =
     await[A] flatMap (v => if (p(v)) emit(v) else Stop) repeatedly

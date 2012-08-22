@@ -59,6 +59,11 @@ sealed trait Plan[+K <: Covariant, +O, +A] {
     r
   }
 
+  def replicateM_(n: Int): Plan[K, O, Unit] = n match {
+    case 0 => Return(())
+    case n => this >> this.replicateM_(n - 1)
+  }
+
   def iterate[L >: K <: Covariant, P >: O, B >: A](h: B => Plan[L, P, B]): Machine[L, P] =
     this match {
       case Return(x)      => h(x) iterate h
