@@ -1,15 +1,30 @@
 package com.clarifi.machines
 
-sealed trait Y[-I, -J] extends Covariant
+sealed trait Y[-I, -J] extends Covariant {
+  def contramap[A,B](g: A => I, h: B => J): Y[A, B]
+  def lmap[B](h: B => I): Y[B, J] = contramap(h, x => x)
+  def rmap[B](h: B => J): Y[I, B] = contramap(x => x, h)
+}
 
 case class W[-I, -O](f: I => O)               extends Y[I, Any] {
-  type X >: O
+  type Ty >: O
+  def contramap[A,B](g: A => I, h: B => Any) = W(f compose g)
+  override def rmap[B](h: B => Any) = this
+  def map[U](h: Ty => U)   = W(f andThen h)
 }
 case class X[-J, -O](f: J => O)               extends Y[Any, J] {
-  type X >: O
+  type Ty >: O
+  def contramap[A,B](g: A => Any, h: B => J) = X(f compose h)
+  override def lmap[B](h: B => Any) = this
+  def map[U](h: Ty => U)   = X(f andThen h)
 }
 case class Z[-I, -J, -O](f: Either[I, J] => O) extends Y[I, J] {
-  type X >: O
+  type Ty >: O
+  def contramap[A,B](g: A => I, h: B => J) = Z({
+    case Left(a)  => f(Left(g(a)))
+    case Right(b) => f(Right(h(b)))
+  })
+  def map[U](h: Ty => U) = Z(f andThen h)
 }
 
 object Wye {

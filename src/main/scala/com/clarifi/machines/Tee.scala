@@ -7,22 +7,24 @@ import Machine._
 sealed trait T[-I, -J] extends Covariant {
   def lmap[B](h: B => I): T[B, J]
   def rmap[B](h: B => J): T[I, B]
-
-  def fold[R](kl: (I => X) => R, kr: (J => X) => R): R
 }
 
 case class L[-I, -O](f: I => O) extends T[I, Any] {
-  type X >: O
+  type Ty >: O
 
   def lmap[B](h: B => I)   = L(f compose h)
-  def rmap[B](H: B => Any) = this
+  def rmap[B](h: B => Any) = this
+
+  def map[U](h: Ty => U) = L(f andThen h)
 }
 
 case class R[-J, -O](f: J => O) extends T[Any, J] {
-  type X >: O
+  type Ty >: O
 
   def lmap[B](h: B => Any) = this
   def rmap[B](h: B => J)   = R(f compose h)
+
+  def map[U](h: Ty => U) = R(f andThen h)
 }
 
 object Tee {
@@ -75,7 +77,10 @@ object Tee {
   def capR[A, B, C](s: Source[B], t: Tee[A, B, C]): Process[A, C] =
     addR(s, t) inmap cappedT
 
-  def cappedT[A](t: T[A, A]): S[A] = t.fold(Fun(_), Fun(_))
+  def cappedT[A](t: T[A, A]): S[A] = t match {
+    case L(f) => Fun(f)
+    case R(f) => Fun(f)
+  }
 
   def left[A]: Handle[T[A, Any], A] =
     new Handle[T[A, Any], A] {

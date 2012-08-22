@@ -94,7 +94,7 @@ case class Emit[+K <: Covariant, +O, +A](
     Emit(o, () => next() orElse p)
 }
 
-case class Await[+K <: Covariant, Z <: K#X, +O, +A](
+case class Await[+K <: Covariant, Z <: K#Ty, +O, +A](
   k: Z => Plan[K, O, A],
   success: K,
   failure: () => Plan[K, O, A]
@@ -137,7 +137,7 @@ object Plan {
    * }}}
    */
   trait Handle[+K <: Covariant, +O] {
-    def apply[R >: K#X](f: O => R): K
+    def apply[R >: K#Ty](f: O => R): K
   }
 
   /** Waits for input on a particular `Handle`. */

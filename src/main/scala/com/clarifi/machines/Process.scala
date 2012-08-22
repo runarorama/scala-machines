@@ -8,11 +8,12 @@ import Plan._
  */
 
 sealed trait S[-I] extends Covariant {
-  def apply(i: I): X
+  def apply(i: I): Ty
+  def map[U](h: Ty => U) = Fun((i: I) => h(apply(i)))
 }
 
 case class Fun[-I,-O](f: I => O) extends S[I] {
-  type X >: O
+  type Ty >: O
   def apply(i: I) = f(i)
 }
 

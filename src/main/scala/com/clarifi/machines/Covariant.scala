@@ -1,7 +1,7 @@
 package com.clarifi.machines
 
 trait Covariant {
-  type X
-//  def map[Y](h: X => Y): Covariant { type X >: Y }
+  type Ty
+  def map[U](h: Ty => U): Covariant { type Ty >: U }
 }
 
