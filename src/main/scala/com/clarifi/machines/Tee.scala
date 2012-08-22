@@ -4,28 +4,29 @@ import scalaz._
 
 import Machine._
 
-sealed trait T[-I, -J, +O] {
-  def map[B](f: O => B): T[I, J, O]
-  def lmap[B](f: B => I): T[B, J, O]
-  def rmap[B](f: B => J): T[I, B, O]
+sealed trait T[-I, -J] extends Covariant {
+  def lmap[B](h: B => I): T[B, J]
+  def rmap[B](h: B => J): T[I, B]
+
+  def fold[R](kl: (I => X) => R, kr: (J => X) => R): R
 }
 
-case class L[-I, +O](k: I => O) extends T[I, Any, O] {
-  def map[B](f: O => B): T[I, Any, B] = L(k andThen f)
-  def lmap[B](f: B => I) = L(k compose f)
-  def rmap[B](f: B => Any) = this
+case class L[-I, O](f: I => O) extends T[I, Any] {
+  type X = O
+
+  def lmap[B](h: B => I)   = L(f compose h)
+  def rmap[B](H: B => Any) = this
+
+  def fold[R](kl: (I => X) => R, kr: (Any => X) => R) = kl(f)
 }
 
-case class R[-I, +O](k: I => O) extends T[Any, I, O] {
-  def map[B](f: O => B): T[Any, I, B] = R(k andThen f)
-  def lmap[B](f: B => Any) = this
-  def rmap[B](f: B => I) = R(k compose f)
-}
+case class R[-J, O](f: J => O) extends T[Any, J] {
+  type X = O
 
-object T {
-  implicit def tFunctor[I, J]: Functor[({type λ[α] = T[I, J, α]})#λ] = new Functor[({type λ[α] = T[I, J, α]})#λ] {
-    def map[A,B](m: T[I, J, A])(f: A => B): T[I, J, B] = m map f
-  }
+  def lmap[B](h: B => Any) = this
+  def rmap[B](h: B => J)   = R(f compose h)
+
+  def fold[R](kl: (Any => X) => R, kr: (J => X) => R) = kr(f)
 }
 
 object Tee {
@@ -34,32 +35,38 @@ object Tee {
 
   import scalaz.syntax.order._
 
-  /* def mergeOuter[A, B, K:Order]: Tee[(K, List[A]), (K, List[B]), These[A, B]] =
-    awaits(left[(K, List[A])]) flatMap {
-      case (k, as) => sys.error("sr")
-    } orElse flattened(right[List[B]]).inmap(_._2) */
+//  /* def mergeOuter[A, B, K:Order]: Tee[(K, List[A]), (K, List[B]), These[A, B]] =
+//    awaits(left[(K, List[A])]) flatMap {
+//      case (k, as) => sys.error("sr")
+//    } orElse flattened(right[List[B]]).inmap(_._2) */
 
   def tee[A, AA, B, BB, C](ma: Process[A, AA], mb: Process[B, BB], m: Tee[AA, BB, C]): Tee[A, B, C] = {
-    type Tab[+X] = T[A, B, X]
     m match {
       case Stop => Stop
       case Emit(o, k) => Emit(o, () => tee(ma, mb, k()))
-      case Await(f, L(kf), ff) => ma match {
-        case Stop => tee(stopped, mb, ff())
-        case Emit(a, k) => tee(k(), mb, f(kf(a)))
-        case Await(g, kg, fg) => Await[Tab, C, Nothing, Tee[A, B, C]](
-                                         x => x,
-                                         L(a => tee(g(kg(a)), mb, m)),
-                                         () => tee(fg(), mb, m))
-      }
-      case Await(f, R(kf), ff) => mb match {
-        case Stop => tee(ma, stopped, ff())
-        case Emit(b, k) => tee(ma, k(), f(kf(b)))
-        case Await(g, kg, fg) => Await[Tab, C, Nothing, Tee[A, B, C]](
-                                         x => x,
-                                         R((b: B) => tee(ma, g(kg(b)), m)),
-                                         () => tee(ma, fg(), m))
-      }
+      case Await(k, s, f) =>
+        s fold (
+          kl => ma match {
+            case Stop => tee(stopped, mb, f())
+            case Emit(a, next) => tee(next(), mb, k(kl(a)))
+            case Await(g, kg, fg) =>
+              Await(
+                (maa: Process[A, AA]) => tee(maa, mb, m),
+                L(a => g(kg(a))),
+                () => tee(fg(), mb, m)
+              )
+          },
+          kr => mb match {
+            case Stop => tee(ma, stopped, f())
+            case Emit(b, next) => tee(ma, next(), k(kr(b)))
+            case Await(g, kg, fg) =>
+              Await(
+                (mbb: Process[B, BB]) => tee(ma, mbb, m),
+                R((b: B) => g(kg(b))),
+                () => tee(ma, fg(), m)
+              )
+          }
+        )
     }
   }
 
@@ -70,26 +77,20 @@ object Tee {
     tee(id, p, t)
 
   def capL[A, B, C](s: Source[A], t: Tee[A, B, C]): Process[B, C] =
-    addL(s, t) fitting cappedT
+    addL(s, t) inmap cappedT
 
   def capR[A, B, C](s: Source[B], t: Tee[A, B, C]): Process[A, C] =
-    addR(s, t) fitting cappedT
+    addR(s, t) inmap cappedT
 
-  def cappedT[A]: ({ type λ[+α] = T[A, A, α] })#λ ~> ({ type λ[+α] = A => α })#λ
-    new (({ type λ[+α] = T[A, A, α] })#λ ~> ({ type λ[+α] = A => α })#λ) {
-      def apply[R](t: T[A, A, R]): A => R = t match {
-        case L(f) => f
-        case R(f) => f
-      }
-    }
+  def cappedT[A](t: T[A, A]): S[A] = t.fold(Fun(_), Fun(_))
 
-  def left[A]: Handle[({type λ[+α] = T[A, Any, α]})#λ, A] =
-    new Handle[({type λ[+α] = T[A, Any, α]})#λ, A] {
+  def left[A]: Handle[T[A, Any], A] =
+    new Handle[T[A, Any], A] {
       def apply[R](f: A => R) = L(f)
     }
 
-  def right[A]: Handle[({type λ[+α] = T[Any, A, α]})#λ, A] =
-    new Handle[({type λ[+α] = T[Any, A, α]})#λ, A] {
+  def right[A]: Handle[T[Any, A], A] =
+    new Handle[T[Any, A], A] {
       def apply[R](f: A => R) = R(f)
     }
 }

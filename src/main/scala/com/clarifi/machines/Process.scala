@@ -6,6 +6,16 @@ import Plan._
 /**
  *
  */
+
+sealed trait S[-I] extends Covariant {
+  def apply(i: I): X
+}
+
+case class Fun[-I,O](f: I => O) extends S[I] {
+  type X = O
+  def apply(i: I) = f(i)
+}
+
 object Process {
   import Machine.ProcessCategory._
 
@@ -28,12 +38,12 @@ object Process {
     await[A] flatMap (v => if (p(v)) emit(v) else Stop) repeatedly
 
   def droppingWhile[A](p: A => Boolean): Process[A, A] = {
-    lazy val loop: Plan[({type λ[+α] = A => α})#λ, A, Unit] = await[A] flatMap (v => if (p(v)) loop else emit(v))
+    lazy val loop: Plan[S[A], A, Unit] = await[A] flatMap (v => if (p(v)) loop else emit(v))
     loop >> id
   }
 
   def buffered[A](n: Int): Process[A, List[A]] = {
-    def go(xs: List[A], c: Int): Plan[({type λ[+α] = A => α})#λ, List[A], Unit] = (xs, c) match {
+    def go(xs: List[A], c: Int): Plan[S[A], List[A], Unit] = (xs, c) match {
       case (List(), 0) => Stop
       case (acc, 0) => emit(acc reverse)
       case (acc, n) => for {

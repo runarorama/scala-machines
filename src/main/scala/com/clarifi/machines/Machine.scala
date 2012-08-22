@@ -5,8 +5,9 @@ import scalaz.syntax.arrow._
 import Scalaz._
 
 object Machine {
-  implicit def machineFunctor[K[+_]]: Functor[({type λ[+α] = Machine[K, α]})#λ] with
-                                         Foldable[({type λ[+α] = Machine[K, α]})#λ] =
+  implicit def machineFunctor[K <: Covariant]:
+      Functor[({type λ[+α] = Machine[K, α]})#λ] with
+      Foldable[({type λ[+α] = Machine[K, α]})#λ] =
     new Functor[({type λ[+α] = Machine[K, α]})#λ] with
         Foldable[({type λ[+α] = Machine[K, α]})#λ] {
       def map[A, B](m: Machine[K, A])(f: A => B): Machine[K, B] = m outmap f
@@ -17,20 +18,17 @@ object Machine {
   import Plan._
 
   implicit object ProcessCategory extends Category[Process] {
-    def id[A]: Process[A, A] = (for {
-      i <- await[A]
-      o <- emit(i)
-    } yield o).repeatedly
+    def id[A]: Process[A, A] = (await[A] flatMap emit) repeatedly
 
     def compose[A, B, C](m: Process[B, C], n: Process[A, B]): Process[A, C] =
       n andThen m
   }
 
-  def pass[K[+_], O](h: Handle[K, O]): Machine[K, O] =
+  def pass[K <: Covariant, O](h: Handle[K, O]): Machine[K, O] =
     awaits(h) flatMap { x => emit(x) } repeatedly
 
-  def stopped[K[+_], O]: Machine[K, O] = Stop
+  def stopped[K <: Covariant, O]: Machine[K, O] = Stop
 
-  def flattened[K[+_]](h: Handle[K, List[I], List[I]]): Machine[K, List[I], I] =
+  def flattened[K <: Covariant, I](h: Handle[K, List[I]]): Machine[K, I] =
     awaits(h) flatMap (is => traversePlan_(is)(emit)) repeatedly
 }
