@@ -104,8 +104,10 @@ case class Await[+K <: Covariant, Z <: K#Ty, +O, +A](
   success: K,
   failure: () => Plan[K, O, A]
 ) extends Plan[K, O, A] {
-  def flatMap[L >: K <: Covariant, P >: O, B](f: A => Plan[L, P, B]) = sys.error("")
-  def orElse[L >: K <: Covariant, P >: O, B >: A](p: => Plan[L, P, B]) = sys.error("")
+  def flatMap[L >: K <: Covariant, P >: O, B](f: A => Plan[L, P, B]) =
+    Await(k andThen (_ flatMap f), success, () => failure() flatMap f)
+  def orElse[L >: K <: Covariant, P >: O, B >: A](p: => Plan[L, P, B]) =
+    Await(k andThen (_ orElse p), success, () => p)
 }
 
 case object Stop extends Plan[Nothing, Nothing, Nothing] {

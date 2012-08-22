@@ -1,6 +1,9 @@
 package com.clarifi.machines
 
 import scalaz._
+import scalaz.syntax.order._
+import Scalaz._
+import Ordering._
 
 import Machine._
 
@@ -39,10 +42,25 @@ object Tee {
 
   import scalaz.syntax.order._
 
-//  /* def mergeOuter[A, B, K:Order]: Tee[(K, List[A]), (K, List[B]), These[A, B]] =
-//    awaits(left[(K, List[A])]) flatMap {
-//      case (k, as) => sys.error("sr")
-//    } orElse flattened(right[List[B]]).inmap(_._2) */
+  def mergeOuterAux[A, B, K:Order](ka: K, ca: List[A], kb: K, cb: List[B]): Tee[(K, List[A]), (K, List[B]), These[A, B]] = {
+    val o = Order[K].orderSyntax ; import o._
+    ka ?|? kb match {
+      case LT => traversePlan_(ca)(a => emit(This(a))) >> awaits(left[(K, List[A])]) flatMap {
+        case (kap, cap) => mergeOuterAux(kap, cap, kb, cb)
+      } orElse flattened(right[List[B]]).inmap(_.rmap((p: (K, List[B])) => p._2)).outmap(That(_))
+      case GT => traversePlan_(cb)(b => emit(That(b))) >> awaits(right[(K, List[B])]) flatMap {
+        case (kbp, cbp) => mergeOuterAux(ka, ca, kbp, cbp)
+      } orElse flattened(left[List[A]]).inmap(_.lmap((p: (K, List[A])) => p._2)).outmap(This(_))
+      case EQ => traversePlan_(for { a <- ca ; b <- cb } yield Both(a, b))(emit _) >> mergeOuter
+    }
+  }
+
+  def mergeOuter[A, B, K:Order]: Tee[(K, List[A]), (K, List[B]), These[A, B]] =
+    awaits(left[(K, List[A])]) flatMap {
+      case (ka, as) => awaits(right[(K, List[B])]) flatMap {
+        case (kb, bs) => mergeOuterAux(ka, as, kb, bs)
+      } orElse flattened(left[List[A]]).inmap(_.lmap((p: (K, List[A])) => p._2)).outmap(This(_))
+    } orElse flattened(right[List[B]]).inmap(_.rmap((p: (K, List[B])) => p._2)).outmap(That(_))
 
   def tee[A, AA, B, BB, C](ma: Process[A, AA], mb: Process[B, BB], m: Tee[AA, BB, C]): Tee[A, B, C] = {
     m match {
