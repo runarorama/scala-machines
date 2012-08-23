@@ -7,6 +7,35 @@ import Ordering._
 
 import Machine._
 
+sealed trait TT[+F <: Covariant, +G <: Covariant] extends Covariant {
+  def lmap[B <: Covariant](h: F => B): TT[B, G]
+  def rmap[B <: Covariant](h: G => B): TT[F, B]
+
+  def fold[R](fl: F => R, kr: G => R): R
+}
+
+case class TTL[+F <: Covariant](f: F) extends TT[F, Nothing] {
+  type Ty = f.Ty
+
+  def lmap[B <: Covariant](h: F => B) = TTL(h(f))
+  def rmap[B <: Covariant](h: Nothing => B) = this
+
+  def map[U](h: Ty => U) = TTL(f map h)
+
+  def fold[R](kl: F => R, kr: Nothing => R) = kl(f)
+}
+
+case class TTR[+G <: Covariant](g: G) extends TT[Nothing, G] {
+  type Ty = g.Ty
+
+  def lmap[B <: Covariant](h: Nothing => B) = this
+  def rmap[B <: Covariant](h: G => B) = TTR(h(g))
+
+  def map[U](h: Ty => U) = TTR(g map h)
+
+  def fold[R](kl: Nothing => R, kr: G => R) = kr(g)
+}
+
 sealed trait T[-I, -J] extends Covariant {
   def lmap[B](h: B => I): T[B, J]
   def rmap[B](h: B => J): T[I, B]
@@ -68,7 +97,7 @@ object Tee {
       case Emit(o, k) => Emit(o, () => tee(ma, mb, k()))
       case Await(k, s, f) => s fold (
         kl => ma match {
-          case Stop          => Stop
+          case Stop          => tee(ma, mb, f())
           case Emit(a, next) => tee(next(), mb, k(kl(a)))
           case Await(g, kg, fg) =>
             Await(
@@ -78,7 +107,7 @@ object Tee {
             )
           },
         kr => mb match {
-          case Stop         => Stop
+          case Stop         => tee(ma, mb, f())
           case Emit(b, next) => tee(ma, next(), k(kr(b)))
           case Await(g, kg, fg) =>
             Await(
@@ -89,6 +118,32 @@ object Tee {
         }
       )
     }
+  }
+
+  def teeM[A <: Covariant, AA, B <: Covariant, BB, C](
+    ma: Machine[A, AA],
+    mb: Machine[B, BB],
+    t: Tee[AA, BB, C]): Machine[TT[A, B], C] = t match {
+      case Stop => Stop
+      case Emit(o, k) => Emit(o, () => teeM(ma, mb, k()))
+      case Await(k, s, f) => s.fold(
+        kl => ma match {
+          case Stop => teeM(ma, mb, f())
+          case Emit(a, next) => teeM(next(), mb, k(kl(a)))
+          case Await(g, kg, fg) =>
+            Await(g andThen ((m: Machine[A, AA]) => teeM(m, mb, t)),
+                  TTL(kg),
+                  () => teeM(fg(), mb, t))
+        },
+        kr => mb match {
+          case Stop => teeM(ma, mb, f())
+          case Emit(b, next) => teeM(ma, next(), k(kr(b)))
+          case Await(g, kg, fg) =>
+            Await(g andThen ((m: Machine[B, BB]) => teeM(ma, m, t)),
+                  TTR(kg),
+                  () => teeM(ma, fg(), t))
+        }
+      )
   }
 
   def cappedT[A](t: T[A, A]): S[A] = t.fold(Fun(_), Fun(_))
@@ -102,4 +157,7 @@ object Tee {
     new Handle[T[Any, A], A] {
       def apply[R](f: A => R) = R(f)
     }
+
+
+
 }
