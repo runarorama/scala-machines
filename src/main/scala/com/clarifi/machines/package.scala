@@ -6,9 +6,23 @@ import syntax.foldable._
 package object machines {
   import Plan._
 
-  type Machine[+K <: Covariant, +O] = Plan[K, O, Nothing]
+  type T[-A, -B] = (A => Any) \/ (B => Any)
 
-  type Process[-I, +O] = Machine[S[I], O]
+  /**
+   * Many combinators are parameterized on the choice of `Handle`.
+   * This acts like an input stream selector.
+   *
+   * For example:
+   * {{{
+   * L : Handle[Merge, (A, B), A]
+   * R : Handle[Merge, (A, B), B]
+   * }}}
+   */
+  type Handle[+K, +O] = (O => Any) => K
+
+  type Machine[+K, +O] = Plan[K, O, Nothing]
+
+  type Process[-I, +O] = Machine[I => Any, O]
 
   sealed class ProcessW[-I, +O](p: Process[I, O]) {
     import Process._
@@ -43,9 +57,9 @@ package object machines {
   }
   implicit def teew[I, J, O](tee: Tee[I, J, O]): TeeW[I, J, O] = new TeeW(tee)
 
-  type Wye[-I, -J, +O] = Machine[Y[I, J], O]
+  type Wye[-I, -J, +O] = Machine[These[I => Any, J => Any], O]
 
-  def traversePlan_[F[_], K <: Covariant, O, A](as: F[A])(f: A => Plan[K, O, Unit])(implicit F: Foldable[F]): Plan[K, O, Unit] =
+  def traversePlan_[F[_], K, O, A](as: F[A])(f: A => Plan[K, O, Unit])(implicit F: Foldable[F]): Plan[K, O, Unit] =
     as.traverse_[({type λ[α] = Plan[K, O, α]})#λ](f)(planInstance[K, O])
 
 }

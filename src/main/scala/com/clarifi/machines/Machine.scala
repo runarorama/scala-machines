@@ -5,7 +5,7 @@ import scalaz.syntax.arrow._
 import Scalaz._
 
 object Machine {
-  implicit def machineFunctor[K <: Covariant]:
+  implicit def machineFunctor[K]:
       Functor[({type λ[+α] = Machine[K, α]})#λ] with
       Foldable[({type λ[+α] = Machine[K, α]})#λ] =
     new Functor[({type λ[+α] = Machine[K, α]})#λ] with
@@ -24,11 +24,11 @@ object Machine {
       n andThen m
   }
 
-  def pass[K <: Covariant, O](h: Handle[K, O]): Machine[K, O] =
+  def pass[K, O](h: Handle[K, O]): Machine[K, O] =
     awaits(h) flatMap { x => emit(x) } repeatedly
 
-  def stopped[K <: Covariant, O]: Machine[K, O] = Stop
+  def stopped[K, O]: Machine[K, O] = Stop
 
-  def flattened[K <: Covariant, I](h: Handle[K, List[I]]): Machine[K, I] =
+  def flattened[K, I](h: Handle[K, List[I]]): Machine[K, I] =
     awaits(h) flatMap (is => traversePlan_(is)(emit)) repeatedly
 }

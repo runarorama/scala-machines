@@ -10,13 +10,13 @@ import scalaz._
  * A `Plan[K, O, A]` is a specification for a pure `Machine` that reads inputs selected by `K`,
  * writes values of type `O`, and has intermediate results of type `A`.
  */
-sealed trait Plan[+K <: Covariant, +O, +A] {
-  def flatMap[L >: K <: Covariant, P >: O, B](f: A => Plan[L, P, B]): Plan[L, P, B]
-  def orElse[L >: K <: Covariant, P >: O, B >: A](p: => Plan[L, P, B]): Plan[L, P, B]
+sealed trait Plan[+K, +O, +A] {
+  def flatMap[L >: K, P >: O, B](f: A => Plan[L, P, B]): Plan[L, P, B]
+  def orElse[L >: K, P >: O, B >: A](p: => Plan[L, P, B]): Plan[L, P, B]
 
   def map[B](f: A => B): Plan[K, O, B] = flatMap { x => Return(f(x)) }
 
-  def inmap[L <: Covariant](p: K => L): Plan[L, O, A] = this match {
+  def inmap[L](p: K => L): Plan[L, O, A] = this match {
     case r@Return(_)    => r
     case Stop           => Stop
     case Emit(o, next)  => Emit(o, () => next() inmap p)
@@ -49,7 +49,7 @@ sealed trait Plan[+K <: Covariant, +O, +A] {
     case _                    => acc
   }
 
-  def >>[L >: K <: Covariant, P >: O, B](next: => Plan[L, P, B]): Plan[L, P, B] =
+  def >>[L >: K, P >: O, B](next: => Plan[L, P, B]): Plan[L, P, B] =
     flatMap { _ => next }
 
   def compile: Machine[K, O] = >>(Stop)
@@ -64,7 +64,7 @@ sealed trait Plan[+K <: Covariant, +O, +A] {
     case n => this >> this.replicateM_(n - 1)
   }
 
-  def iterate[L >: K <: Covariant, P >: O, B >: A](h: B => Plan[L, P, B]): Machine[L, P] =
+  def iterate[L >: K, P >: O, B >: A](h: B => Plan[L, P, B]): Machine[L, P] =
     this match {
       case Return(x)      => h(x) iterate h
       case Stop           => Stop
@@ -85,38 +85,33 @@ sealed trait Plan[+K <: Covariant, +O, +A] {
 }
 
 case class Return[+A](x: A) extends Plan[Nothing, Nothing, A] {
-  def flatMap[L >: Nothing <: Covariant, P >: Nothing, B](f: A => Plan[L, P, B])   = f(x)
-  def orElse[L >: Nothing <: Covariant, P >: Nothing, B >: A](p: => Plan[L, P, B]) = this
+  def flatMap[L >: Nothing, P >: Nothing, B](f: A => Plan[L, P, B])   = f(x)
+  def orElse[L >: Nothing, P >: Nothing, B >: A](p: => Plan[L, P, B]) = this
 }
 
-case class Emit[+K <: Covariant, +O, +A](
-  o: O,
-  next: () => Plan[K, O, A]
-) extends Plan[K, O, A] {
-  def flatMap[L >: K <: Covariant, P >: O, B](f: A => Plan[L, P, B]) =
+case class Emit[+K, +O, +A](o: O, next: () => Plan[K, O, A]) extends Plan[K, O, A] {
+  def flatMap[L >: K, P >: O, B](f: A => Plan[L, P, B]) =
     Emit(o, () => next() flatMap f)
-  def orElse[L >: K <: Covariant, P >: O, B >: A](p: => Plan[L, P, B]) =
+  def orElse[L >: K, P >: O, B >: A](p: => Plan[L, P, B]) =
     Emit(o, () => next() orElse p)
 }
 
-case class Await[+K <: Covariant, Z <: K#Ty, +O, +A](
-  k: Z => Plan[K, O, A],
-  success: K,
-  failure: () => Plan[K, O, A]
-) extends Plan[K, O, A] {
-  def flatMap[L >: K <: Covariant, P >: O, B](f: A => Plan[L, P, B]) =
+case class Await[+K, +O, +A](k: Any => Plan[K, O, A],
+                             success: K,
+                             failure: () => Plan[K, O, A]) extends Plan[K, O, A] {
+  def flatMap[L >: K, P >: O, B](f: A => Plan[L, P, B]) =
     Await(k andThen (_ flatMap f), success, () => failure() flatMap f)
-  def orElse[L >: K <: Covariant, P >: O, B >: A](p: => Plan[L, P, B]) =
+  def orElse[L >: K, P >: O, B >: A](p: => Plan[L, P, B]) =
     Await(k andThen (_ orElse p), success, () => p)
 }
 
 case object Stop extends Plan[Nothing, Nothing, Nothing] {
-  def flatMap[L >: Nothing <: Covariant, P >: Nothing, B](f: Nothing => Plan[L, P, B]) = this
-  def orElse[L >: Nothing <: Covariant, P >: Nothing, B >: Nothing](p: => Plan[L, P, B]) = this
+  def flatMap[L >: Nothing, P >: Nothing, B](f: Nothing => Plan[L, P, B]) = this
+  def orElse[L >: Nothing, P >: Nothing, B >: Nothing](p: => Plan[L, P, B]) = this
 }
 
 object Plan {
-  implicit def planInstance[K <: Covariant, O]: MonadPlus[({type λ[α] = Plan[K, O, α]})#λ] =
+  implicit def planInstance[K, O]: MonadPlus[({type λ[α] = Plan[K, O, α]})#λ] =
     new MonadPlus[({type λ[+α] = Plan[K, O, α]})#λ] {
       def bind[A, B](m: Plan[K, O, A])(f: A => Plan[K, O, B]) = m flatMap f
       def point[A](a: => A) = Return(a)
@@ -131,23 +126,9 @@ object Plan {
   def emit[A](a: A): Plan[Nothing, A, Unit] = Emit(a, () => Return(()))
 
   /** Awaits an input of type `A`. */
-  def await[A]: Plan[S[A], Nothing, A] = Await((a: A) => Return(a), Fun(x => x), fail)
-
-  /**
-   * Many combinators are parameterized on the choice of `Handle`.
-   * This acts like an input stream selector.
-   *
-   * For example:
-   * {{{
-   * L : Handle[Merge, (A, B), A]
-   * R : Handle[Merge, (A, B), B]
-   * }}}
-   */
-  trait Handle[+K <: Covariant, +O] {
-    def apply[R >: K#Ty](f: O => R): K
-  }
+  def await[A]: Plan[A => Any, Nothing, A] = Await((a: Any) => Return(a.asInstanceOf[A]), x => x, fail)
 
   /** Waits for input on a particular `Handle`. */
-  def awaits[K <: Covariant, J, O](f: Handle[K, J]): Plan[K, O, J] =
-    Await((a: J) => Return(a), f(x => x), fail)
+  def awaits[K, J, O](f: Handle[K, J]): Plan[K, O, J] =
+    Await((a: Any) => Return(a.asInstanceOf[J]), f(x => x), fail)
 }
