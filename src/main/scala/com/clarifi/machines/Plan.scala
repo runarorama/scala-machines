@@ -7,8 +7,9 @@ import scalaz._
 
 /**
  * You can construct a `Plan` and then `compile` it to a `Machine`.
- * A `Plan[K, O, A]` is a specification for a pure `Machine` that reads inputs selected by `K`,
- * writes values of type `O`, and has intermediate results of type `A`.
+ * A `Plan[K, O, A]` is a specification for a pure `Machine` that reads
+ * inputs selected by `K` and writes values of type `O`. The `Plan` has
+ * intermediate results of type `A` which are placeholders for further plans.
  */
 sealed trait Plan[+K, +O, +A] {
   def flatMap[L >: K, P >: O, B](f: A => Plan[L, P, B]): Plan[L, P, B]
@@ -111,6 +112,7 @@ case object Stop extends Plan[Nothing, Nothing, Nothing] {
 }
 
 object Plan {
+  /** `Plan` is a ringad. */
   implicit def planInstance[K, O]: MonadPlus[({type λ[α] = Plan[K, O, α]})#λ] =
     new MonadPlus[({type λ[+α] = Plan[K, O, α]})#λ] {
       def bind[A, B](m: Plan[K, O, A])(f: A => Plan[K, O, B]) = m flatMap f
