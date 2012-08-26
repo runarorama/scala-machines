@@ -1,3 +1,6 @@
+// Copyright   :  (C) 2012 Rúnar Bjarnason, Paul Chiusano, Dan Doel, Edward Kmett
+// License     :  BSD-style (see the file LICENSE)
+
 package com.clarifi.machines
 
 import scalaz._
@@ -5,6 +8,10 @@ import scalaz.syntax.arrow._
 import Scalaz._
 
 object Machine {
+
+  /**
+   * The output of machines can be folded and mapped over.
+   */
   implicit def machineFunctor[K]:
       Functor[({type λ[+α] = Machine[K, α]})#λ] with
       Foldable[({type λ[+α] = Machine[K, α]})#λ] =
@@ -17,6 +24,7 @@ object Machine {
 
   import Plan._
 
+  /** Processes form a category. */
   implicit object ProcessCategory extends Category[Process] {
     def id[A]: Process[A, A] = (await[A] flatMap emit) repeatedly
 
@@ -24,11 +32,16 @@ object Machine {
       n andThen m
   }
 
+  /** A machine that just relays its input. */
   def pass[K, O](h: Handle[K, O]): Machine[K, O] =
     awaits(h) flatMap { x => emit(x) } repeatedly
 
+  /** A stopped machine that never emits output nor awaits input. */
   def stopped[K, O]: Machine[K, O] = Stop
 
+  /**
+   * A machine that emits the individual elements of input lists.
+   */
   def flattened[K, I](h: Handle[K, List[I]]): Machine[K, I] =
     awaits(h) flatMap (is => traversePlan_(is)(emit)) repeatedly
 }

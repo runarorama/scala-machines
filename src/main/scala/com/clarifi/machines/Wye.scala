@@ -4,6 +4,7 @@ object Wye {
   import Machine._
   import Process._
 
+  /** Connects the output of two processes into a `Wye`. */
   def wye[A, AA, B, BB, O](pa: Process[A, AA], pb: Process[B, BB], y: Wye[AA, BB, O]): Wye[A, B, O] =
     y match {
       case Stop              => Stop

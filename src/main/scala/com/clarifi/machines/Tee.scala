@@ -14,7 +14,7 @@ object Tee {
   import scalaz.syntax.order._
   import scalaz.\/._
 
-  def mergeOuterAux[A, B, K:Order](ka: K, ca: List[A], kb: K, cb: List[B]): Tee[(K, List[A]), (K, List[B]), These[A, B]] = {
+  private def mergeOuterAux[A, B, K:Order](ka: K, ca: List[A], kb: K, cb: List[B]): Tee[(K, List[A]), (K, List[B]), These[A, B]] = {
     val o = Order[K].orderSyntax ; import o._
     ka ?|? kb match {
       case LT => traversePlan_(ca)(a => emit(This(a))) >> awaits(left[(K, List[A])]) flatMap {
@@ -27,6 +27,9 @@ object Tee {
     }
   }
 
+  /**
+   * A merge outer join according to keys of type `K`.
+   */
   def mergeOuter[A, B, K:Order]: Tee[(K, List[A]), (K, List[B]), These[A, B]] =
     awaits(left[(K, List[A])]) flatMap {
       case (ka, as) => awaits(right[(K, List[B])]) flatMap {
@@ -34,6 +37,10 @@ object Tee {
       } orElse flattened(left[List[A]]).inmap(_.bimap(_.compose((p: (K, List[A])) => p._2), x => x)).outmap(This(_))
     } orElse flattened(right[List[B]]).inmap(_.map(_.compose((p: (K, List[B])) => p._2))).outmap(That(_))
 
+  /**
+   * Feeds the output of two machines into a `Tee`. The result is a machine whose
+   * inputs are described by the coproduct of the inputs of the two machines.
+   */
   def tee[A, AA, B, BB, C](
     ma: Machine[A, AA],
     mb: Machine[B, BB],
@@ -60,10 +67,13 @@ object Tee {
       )
   }
 
+  /** Combines two inputs into one. */
   def cappedT[A](t: T[A, A]): A => Any = t.fold(x => x, x => x)
 
+  /** Request an input on the left. */
   def left[A]: Handle[T[A, Any], A] = \/.left(_)
 
+  /** Request an input on the right. */
   def right[A]: Handle[T[Any, A], A] = \/.right(_)
 
 
