@@ -38,6 +38,23 @@ object Tee {
     } orElse flattened(right[List[B]]).inmap(_.map(_.compose((p: (K, List[B])) => p._2))).outmap(That(_))
 
   /**
+   * A natural hash join according to keys of type `K`.
+   */
+  def hashJoin[A, B, K](f: A => K, g: B => K): Tee[A, B, (A, B)] = {
+    def build(m: Map[K, A]): Plan[T[A, B], Nothing, Map[K, A]] = (for {
+      a  <- awaits(left[A])
+      mp <- build(m + (f(a) -> a))
+    } yield mp) orElse Return(m)
+    for {
+      m <- build(Map())
+      r <- (awaits(right[B]) flatMap (b => {
+        val k = g(b)
+        if (m contains k) emit(m(k) -> b) else Return(())
+      })) repeatedly
+    } yield r
+  }
+
+  /**
    * Feeds the output of two machines into a `Tee`. The result is a machine whose
    * inputs are described by the coproduct of the inputs of the two machines.
    */

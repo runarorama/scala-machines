@@ -1,4 +1,5 @@
-// Copyright   :  (C) 2012 Rúnar Bjarnason, Paul Chiusano, Dan Doel, Edward Kmett
+// Copyright   :  (C) 2012 Rúnar Bjarnason, Paul Chiusano,
+//                         Dan Doel, Edward Kmett
 // License     :  BSD-style (see the file LICENSE)
 
 package com.clarifi.machines
@@ -117,6 +118,12 @@ sealed trait Plan[+K, +O, +A] {
       Await(kl andThen (_ split y), sl, () => fl() split y)
     case (Stop, _) => Stop
     case (r@Return(_), _) => r
+  }
+
+  def sink[P, Q >: O](m: Moore[Q, P]): Moore[Q, P] = this match {
+    case Emit(o, k) => k() sink m.next(o)
+    case Await(_, _, f) => f() sink m
+    case _ => m
   }
 
 }

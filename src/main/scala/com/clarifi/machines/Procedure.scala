@@ -19,7 +19,7 @@ trait Procedure[M[_], A] { self =>
     new Procedure[M, B] {
       type K = self.K
       val machine = self.machine.outmap(f)
-      def withDriver[R](f: Driver[M, K] => M[R]) = self.withDriver(f)
+      def withDriver[R](f: Driver[M, K] => M[R]) = self withDriver f
     }
 
   def machine: Machine[K, A]
@@ -31,6 +31,13 @@ trait Procedure[M[_], A] { self =>
 
   def execute(implicit A: Monoid[A], M: Monad[M]): M[A] =
     foldMapM(M.pure(_))
+
+  def andThen[B](p: Process[A, B]): Procedure[M, B] =
+    new Procedure[M, B] {
+      type K = self.K
+      val machine = self.machine andThen p
+      def withDriver[R](f: Driver[M, K] => M[R]) = self withDriver f
+    }
 
   def tee[B,C](p: Procedure[M, B], t: Tee[A, B, C]): Procedure[M, C] =
     new Procedure[M, C] {

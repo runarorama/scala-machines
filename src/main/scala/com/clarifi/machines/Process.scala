@@ -6,6 +6,8 @@ package com.clarifi.machines
 import scalaz._
 import Plan._
 
+import scalaz.syntax.monad._
+
 /**
  * A `Process` is a `Machine` that accepts inputs of type `I`
  * and emits outputs of type `O`.
@@ -16,6 +18,15 @@ object Process {
   /** A `Process` given by a function in the obvious way. */
   def apply[A, B](f: A => B): Process[A, B] =
     await[A] flatMap (a => emit(f(a))) repeatedly
+
+  /** A `Process` that reduces with a monoid. */
+  def reducer[A, B](r: Reducer[A, B]): Process[A, B] = {
+    def go(acc: B): Process[A, B] = for {
+      a <- await[A] orElse (emit(acc) >> Stop)
+      r <- go(r.snoc(acc, a))
+    } yield r
+    go(r.zero)
+  }
 
   /** A `Process` that starts by emitting the contents of the given `Foldable`. */
   def prepended[F[_], A](as: F[A])(implicit F: Foldable[F]): Process[A, A] =
