@@ -8,6 +8,9 @@ import java.io._
 
 object Example {
 
+  import Machine.ProcessCategory._
+  import Plan._
+
   def getFileLines[A](f: File, m: Process[String, A]): Procedure[IO, A] =
     new Procedure[IO, A] {
       type K = String => Any
@@ -39,6 +42,9 @@ object Example {
     getFileLines(new File(fileName), Process(x => (1, x.length))).execute
 
   def lineWordCount(fileName: String) =
-    getFileLines(new File(fileName), Process(x => x))
+    getFileLines(new File(fileName), Process((x: String) => x).split((for {
+      s <- await[String]
+      _ <- traversePlan_(s.split("\\W").toList)(emit)
+    } yield ()).repeatedly).outmap(_.fold(x => (1, 0), x => (0, 1)))).execute
 
 }

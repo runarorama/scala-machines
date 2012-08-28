@@ -110,7 +110,7 @@ sealed trait Plan[+K, +O, +A] {
   def split[P](y: Process[O, P]): Plan[K, Either[O, P], A] = (this, y) match {
     case (Emit(o, h), Emit(p, k)) =>
       Emit(Left(o), () => Emit(Right(p), () => h() split k()))
-    case (Emit(o, h), Await(k, s, f)) => h() split k(s(o))
+    case (Emit(o, h), Await(k, s, f)) => Emit(Left(o), () => h() split k(s(o)))
     case (Emit(o, h), _) => Emit(Left(o), () => h() split y)
     case (_, Emit(p, k)) => Emit(Right(p), () => this split k())
     case (Await(kl, sl, fl), _) =>
