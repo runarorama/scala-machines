@@ -5,6 +5,7 @@ package com.clarifi.machines
 
 import scalaz._
 import scalaz.syntax.monoid._
+import scalaz.syntax.monad._
 
 /**
  * A `Procedure` is a `Machine` together with a driver for driving
@@ -25,11 +26,11 @@ trait Procedure[M[_], A] { self =>
 
   def withDriver[R](f: Driver[M, K] => M[R]): M[R]
 
-  def foldMapM[R](f: A => R)(implicit R: Monoid[R], M: Monad[M]): M[R] =
-    withDriver(d => d.drive(machine.outmap(f)))
+  def foldMapM[R](f: A => M[R])(implicit R: Monoid[R], M: Monad[M]): M[R] =
+    withDriver(d => d.drive(machine)(f))
 
   def execute(implicit A: Monoid[A], M: Monad[M]): M[A] =
-    foldMapM(x => x)
+    foldMapM(M.pure(_))
 
   def tee[B,C](p: Procedure[M, B], t: Tee[A, B, C]): Procedure[M, C] =
     new Procedure[M, C] {

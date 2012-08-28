@@ -78,8 +78,19 @@ package object machines {
    */
   type Wye[-I, -J, +O] = Machine[Y[I, J], O]
 
+  /**
+   * A machine that can output on two channels.
+   */
+  type Splitter[I, +O, +P] = Machine[I, O \/ P]
+  sealed class SplitterW[I, +O, +P](s: Splitter[I, O, P]) {
+  }
+  implicit def splitterw[I, O, P](s: Splitter[I, O, P]): SplitterW[I, O, P] =
+    new SplitterW(s)
+
+  /** A machine that can receive input on two channels. */
+  type Joiner[-I, -J, +O] = Machine[(I => Any, J => Any), O]
+
   def traversePlan_[F[_], K, O, A](as: F[A])(f: A => Plan[K, O, Unit])(implicit F: Foldable[F]): Plan[K, O, Unit] =
     as.traverse_[({type λ[α] = Plan[K, O, α]})#λ](f)(planInstance[K, O])
-
 }
 

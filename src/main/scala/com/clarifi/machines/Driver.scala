@@ -5,6 +5,7 @@ package com.clarifi.machines
 
 import scalaz._
 import scalaz.syntax.monoid._
+import scalaz.syntax.monad._
 
 /**
  * A `Driver[M, K]` can step through a machine that requests inputs described by `K`
@@ -22,14 +23,20 @@ trait Driver[M[_], K] { self =>
    * machine's output according to a `Monoid`, and accumulating the effects
    * according to a `Monad`.
    */
-  def drive[A](m: Machine[K, A])(implicit A: Monoid[A], M: Monad[M]): M[A] = {
-    def go(m: Machine[K, A], z: A): M[A] = m match {
+  def drive[A, B](m: Machine[K, A])(g: A => M[B])
+    (implicit B: Monoid[B], M: Monad[M]): M[B] = {
+    def go(m: Machine[K, A], z: B): M[B] = m match {
       case Stop => M.pure(z)
-      case Emit(a, next) => go(next(), z |+| a)
-      case Await(k, s, f) =>
-        M.bind(apply(s))(_.map(x => go(k(x), z)).getOrElse(go(f(), z)))
+      case Emit(a, next) => for {
+        x <- g(a)
+        r <- go(next(), z |+| x)
+      } yield r
+      case Await(k, s, f) => for {
+        o <- apply(s)
+        r <- o map(x => go(k(x), z)) getOrElse (go(f(), z))
+      } yield r
     }
-    go(m, A.zero)
+    go(m, B.zero)
   }
 
   /**
