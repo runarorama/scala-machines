@@ -41,10 +41,13 @@ object Example {
   def lineCharCount(fileName: String) =
     getFileLines(new File(fileName), Process(x => (1, x.length))).execute
 
+  val words: Process[String, String] = (for {
+    s <- await[String]
+    _ <- traversePlan_(s.split("\\W").toList)(emit)
+  } yield ()) repeatedly
+
   def lineWordCount(fileName: String) =
-    getFileLines(new File(fileName), Process((x: String) => x).split((for {
-      s <- await[String]
-      _ <- traversePlan_(s.split("\\W").toList)(emit)
-    } yield ()).repeatedly).outmap(_.fold(x => (1, 0), x => (0, 1)))).execute
+    getFileLines(new File(fileName),
+      (id split words) outmap (_.fold(_ => (1, 0), _ => (0, 1)))) execute
 
 }
