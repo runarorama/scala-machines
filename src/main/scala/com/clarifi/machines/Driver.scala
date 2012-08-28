@@ -44,4 +44,3 @@ trait Driver[M[_], K] { self =>
     }
 }
 
-

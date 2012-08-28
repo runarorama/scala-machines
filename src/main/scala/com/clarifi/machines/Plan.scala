@@ -99,12 +99,26 @@ sealed trait Plan[+K, +O, +A] {
     case Emit(o, next)  => Emit(o, () => this andThen next())
     case Stop           => Stop
     case Await(k, s, f) => this match {
-      case r@Return(_)    => r
       case Stop           => Stop andThen f()
       case Emit(o, next)  => next() andThen k(s(o))
       case Await(l, t, g) => Await(l andThen (_ andThen p), t, () => g() andThen p)
+      case r@Return(_)    => r
     }
   }
+
+  /** Split the output into two streams at possibly differing rates. */
+  def split[P](y: Process[O, P]): Plan[K, Either[O, P], A] = (this, y) match {
+    case (Emit(o, h), Emit(p, k)) =>
+      Emit(Left(o), () => Emit(Right(p), () => h() split k()))
+    case (Emit(o, h), Await(k, s, f)) => h() split k(s(o))
+    case (Emit(o, h), _) => Emit(Left(o), () => h() split y)
+    case (_, Emit(p, k)) => Emit(Right(p), () => this split k())
+    case (Await(kl, sl, fl), _) =>
+      Await(kl andThen (_ split y), sl, () => fl() split y)
+    case (Stop, _) => Stop
+    case (r@Return(_), _) => r
+  }
+
 }
 
 /**

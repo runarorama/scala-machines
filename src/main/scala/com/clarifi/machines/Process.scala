@@ -13,6 +13,10 @@ import Plan._
 object Process {
   import Machine.ProcessCategory._
 
+  /** A `Process` given by a function in the obvious way. */
+  def apply[A, B](f: A => B): Process[A, B] =
+    await[A] flatMap (a => emit(f(a))) repeatedly
+
   /** A `Process` that starts by emitting the contents of the given `Foldable`. */
   def prepended[F[_], A](as: F[A])(implicit F: Foldable[F]): Process[A, A] =
     traversePlan_(as)(emit) >> id

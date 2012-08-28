@@ -8,6 +8,8 @@ package object machines {
 
   type T[-A, -B] = (A => Any) \/ (B => Any)
 
+  type Y[-A, -B] = These[A => Any, B => Any]
+
   /**
    * Many combinators are parameterized on the choice of `Handle`.
    * This acts like an input stream selector.
@@ -74,7 +76,7 @@ package object machines {
    * Same as a `Tee` except it can indicate that it has no preference whether it
    * receives an `I` on the left or a `J` on the right.
    */
-  type Wye[-I, -J, +O] = Machine[These[I => Any, J => Any], O]
+  type Wye[-I, -J, +O] = Machine[Y[I, J], O]
 
   def traversePlan_[F[_], K, O, A](as: F[A])(f: A => Plan[K, O, Unit])(implicit F: Foldable[F]): Plan[K, O, Unit] =
     as.traverse_[({type λ[α] = Plan[K, O, α]})#λ](f)(planInstance[K, O])
