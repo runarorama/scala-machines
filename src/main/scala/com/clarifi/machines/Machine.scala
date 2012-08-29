@@ -37,7 +37,7 @@ object Machine {
     awaits(h) flatMap { x => emit(x) } repeatedly
 
   /** A stopped machine that never emits output nor awaits input. */
-  def stopped[K, O]: Machine[K, O] = Stop
+  def stopped: Machine[Nothing, Nothing] = Stop
 
   /**
    * A machine that emits the individual elements of input lists.

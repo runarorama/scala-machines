@@ -12,7 +12,7 @@ import scalaz.syntax.monad._
  * that machine through the use of monadic effects. A `Procedure[M, T]`
  * is conceptually a monadic stream of elements of type `T`.
  */
-trait Procedure[M[_], A] { self =>
+trait Procedure[M[+_], +A] { self =>
   type K
 
   def map[B](f: A => B): Procedure[M, B] =
@@ -29,8 +29,8 @@ trait Procedure[M[_], A] { self =>
   def foldMapM[R](f: A => M[R])(implicit R: Monoid[R], M: Monad[M]): M[R] =
     withDriver(d => d.drive(machine)(f))
 
-  def execute(implicit A: Monoid[A], M: Monad[M]): M[A] =
-    foldMapM(M.pure(_))
+  def execute[B >: A](implicit B: Monoid[B], M: Monad[M]): M[B] =
+    foldMapM[B](M.pure(_))
 
   def andThen[B](p: Process[A, B]): Procedure[M, B] =
     new Procedure[M, B] {

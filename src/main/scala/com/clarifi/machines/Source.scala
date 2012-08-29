@@ -10,6 +10,9 @@ import Plan._
  */
 object Source {
 
+  def apply[F[_], O](os: F[O])(implicit F: Foldable[F]): Source[O] =
+    source(os)
+
   /** Repeatedly emits the given value. */
   def repeated[O](o: O): Source[O] = emit(o).repeatedly
 

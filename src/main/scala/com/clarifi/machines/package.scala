@@ -49,6 +49,19 @@ package object machines {
    */
   type Source[+O] = Machine[Nothing, O]
 
+  sealed class SourceW[+O](s: Source[O]) {
+    def procedure[M[+_]]: Procedure[M, O] =
+      new Procedure[M, O] {
+        type K = Nothing
+        def machine = s
+        def withDriver[R](f: Driver[M, Nothing] => M[R]) =
+          f(new Driver[M, Nothing] {
+            def apply(k: Nothing) = k
+          })
+      }
+  }
+  implicit def sourcew[O](s: Source[O]): SourceW[O] = new SourceW(s)
+
   /**
    * A machine that can request values of type `A` on the left,
    * request values of type `B` on the right, and emit values of type `C`.
