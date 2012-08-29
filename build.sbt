@@ -1,6 +1,6 @@
 name := "machines"
 
-resolvers += "Scala Tools Snapshots" at "http://scala-tools.org/repo-snapshots/"
+resolvers += "Scala Tools Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/"
 
 libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.0-SNAPSHOT"
 
