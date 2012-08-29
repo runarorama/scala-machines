@@ -58,25 +58,25 @@ object Process {
   }
 
   /** Buffers its inputs and relays them in lists of size `n`. */
-  def buffered[A](n: Int): Process[A, List[A]] = {
-    def go(xs: List[A], c: Int): Plan[A => Any, List[A], Unit] = (xs, c) match {
-      case (List(), 0) => Stop
-      case (acc, 0) => emit(acc reverse)
+  def buffered[A](n: Int): Process[A, Vector[A]] = {
+    def go(xs: Vector[A], c: Int): Plan[A => Any, Vector[A], Unit] = (xs, c) match {
+      case (Vector(), 0) => Stop
+      case (acc, 0) => emit(acc)
       case (acc, n) => for {
-        i <- await[A] orElse (emit(acc reverse) >> Stop)
-        _ <- go(i :: acc, n - 1)
+        i <- await[A] orElse (emit(acc) >> Stop)
+        _ <- go(acc :+ i, n - 1)
       } yield ()
     }
-    go(List(), n) repeatedly
+    go(Vector(), n) repeatedly
   }
 
   /** Groups together consecutive inputs that satisfy the relation `p`. */
-  def grouping[A](p: (A, A) => Boolean): Process[A, List[A]] = {
-    def collect(acc: List[A], x: A): Process[A, List[A]] =
-      await[A] orElse (emit(acc reverse) >> Stop) flatMap { y =>
-        if (p(x, y)) collect(y::acc, x)
-        else emit(acc reverse) >> collect(List(), y)
+  def grouping[A](p: (A, A) => Boolean): Process[A, Vector[A]] = {
+    def collect(acc: Vector[A], x: A): Process[A, Vector[A]] =
+      await[A] orElse (emit(acc) >> Stop) flatMap { y =>
+        if (p(x, y)) collect(acc :+ y, x)
+        else emit(acc) >> collect(Vector(), y)
       }
-    await[A] flatMap (collect(List(), _))
+    await[A] flatMap (collect(Vector(), _))
   }
 }

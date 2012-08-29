@@ -42,6 +42,6 @@ object Machine {
   /**
    * A machine that emits the individual elements of input lists.
    */
-  def flattened[K, I](h: Handle[K, List[I]]): Machine[K, I] =
+  def flattened[F[_]:Foldable, K, I](h: Handle[K, F[I]]): Machine[K, I] =
     awaits(h) flatMap (is => traversePlan_(is)(emit)) repeatedly
 }
