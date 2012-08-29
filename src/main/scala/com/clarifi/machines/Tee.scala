@@ -13,29 +13,56 @@ object Tee {
 
   import scalaz.syntax.order._
   import scalaz.\/._
+  import scalaz.std.vector._
 
-  private def mergeOuterAux[A, B, K:Order](ka: K, ca: List[A], kb: K, cb: List[B]): Tee[(K, List[A]), (K, List[B]), These[A, B]] = {
+  private def mergeOuterAux[A, B, K:Order](ka: K,
+                                           ca: Vector[A],
+                                           kb: K,
+                                           cb: Vector[B]): Tee[(K, Vector[A]),
+                                                               (K, Vector[B]),
+                                                               These[A, B]] = {
     val o = Order[K].orderSyntax ; import o._
     ka ?|? kb match {
-      case LT => traversePlan_(ca)(a => emit(This(a))) >> awaits(left[(K, List[A])]) flatMap {
-        case (kap, cap) => mergeOuterAux(kap, cap, kb, cb)
-      } orElse flattened(right[List[B]]).inmap(_.map(_.compose((p: (K, List[B])) => p._2))).outmap(That(_))
-      case GT => traversePlan_(cb)(b => emit(That(b))) >> awaits(right[(K, List[B])]) flatMap {
-        case (kbp, cbp) => mergeOuterAux(ka, ca, kbp, cbp)
-      } orElse flattened(left[List[A]]).inmap(_.bimap(_.compose((p: (K, List[A])) => p._2), x => x)).outmap(This(_))
-      case EQ => traversePlan_(for { a <- ca ; b <- cb } yield Both(a, b))(emit _) >> mergeOuter
+      case LT => traversePlan_(ca)(a =>
+        emit(This(a))) >> awaits(left[(K, Vector[A])]) flatMap {
+          case (kap, cap) => mergeOuterAux(kap, cap, kb, cb)
+        } orElse flattened(right[Vector[B]]).
+                   inmap(_.map(_.compose((p: (K, Vector[B])) => p._2))).
+                   outmap(That(_))
+      case GT => traversePlan_(cb)(b =>
+        emit(That(b))) >> awaits(right[(K, Vector[B])]) flatMap {
+          case (kbp, cbp) => mergeOuterAux(ka, ca, kbp, cbp)
+        } orElse flattened(left[Vector[A]]).
+                   inmap(_.bimap(_.compose((p: (K, Vector[A])) => p._2),
+                                 x => x)).outmap(This(_))
+      case EQ => traversePlan_(for {
+          a <- ca
+          b <- cb
+        } yield Both(a, b))(emit _) >> mergeOuterChunks
     }
   }
 
+  import Process._
+
+  /** A merge outer join according to keys of type `K`. */
+  def mergeOuterJoin[A, B, K:Order](f: A => K, g: B => K): Tee[A, B, These[A, B]] =
+    tee(groupingBy(f), groupingBy(g), mergeOuterChunks[A, B, K])
+
   /**
-   * A merge outer join according to keys of type `K`.
+   * A merge outer join of chunks according to keys of type `K`.
    */
-  def mergeOuter[A, B, K:Order]: Tee[(K, List[A]), (K, List[B]), These[A, B]] =
-    awaits(left[(K, List[A])]) flatMap {
-      case (ka, as) => awaits(right[(K, List[B])]) flatMap {
+  def mergeOuterChunks[A, B, K:Order]: Tee[(K, Vector[A]),
+                                           (K, Vector[B]),
+                                           These[A, B]] =
+    awaits(left[(K, Vector[A])]) flatMap {
+      case (ka, as) => awaits(right[(K, Vector[B])]) flatMap {
         case (kb, bs) => mergeOuterAux(ka, as, kb, bs)
-      } orElse flattened(left[List[A]]).inmap(_.bimap(_.compose((p: (K, List[A])) => p._2), x => x)).outmap(This(_))
-    } orElse flattened(right[List[B]]).inmap(_.map(_.compose((p: (K, List[B])) => p._2))).outmap(That(_))
+      } orElse flattened(left[Vector[A]]).
+               inmap(_.bimap(_.compose((p: (K, Vector[A])) => p._2), x => x)).
+               outmap(This(_))
+    } orElse flattened(right[Vector[B]]).
+             inmap(_.map(_.compose((p: (K, Vector[B])) => p._2))).
+             outmap(That(_))
 
   /**
    * A natural hash join according to keys of type `K`.

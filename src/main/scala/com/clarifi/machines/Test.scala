@@ -10,11 +10,11 @@ object Test {
     import Tee._
     import Source._
 
-    val l1 = List(1 -> List(1,2,3), 3 -> List(3,4,5), 4 -> List(6,7,8,9))
-    val l2 = List(1 -> List(0,1,2), 2 -> List(3,4,5), 4 -> List(1,2,3))
+    val l1 = List(1 -> 10, 2 -> 20, 3 -> 30)
+    val l2 = List(1 -> 11, 3 -> 33, 4 -> 44)
 
-    println(mergeOuter[Int,Int,Int].capL(source(l1)).cap(source(l2)).foldMap(List(_)))
-    println("wat")
+    println(mergeOuterJoin[(Int, Int), (Int, Int), Int](_._1, _._1).
+      capL(source(l1)).cap(source(l2)).foldMap(List(_)))
   }
 }
 

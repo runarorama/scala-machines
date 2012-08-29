@@ -7,6 +7,7 @@ import scalaz._
 import Plan._
 
 import scalaz.syntax.monad._
+import scalaz.syntax.order._
 
 /**
  * A `Process` is a `Machine` that accepts inputs of type `I`
@@ -73,10 +74,15 @@ object Process {
   /** Groups together consecutive inputs that satisfy the relation `p`. */
   def grouping[A](p: (A, A) => Boolean): Process[A, Vector[A]] = {
     def collect(acc: Vector[A], x: A): Process[A, Vector[A]] =
-      await[A] orElse (emit(acc) >> Stop) flatMap { y =>
-        if (p(x, y)) collect(acc :+ y, x)
-        else emit(acc) >> collect(Vector(), y)
+      await[A] orElse (emit(acc :+ x) >> Stop) flatMap { y =>
+        if (p(x, y)) collect(acc :+ x, y)
+        else emit(acc :+ x) >> collect(Vector(), y)
       }
     await[A] flatMap (collect(Vector(), _))
   }
+
+  /** Groups together consecutive inputs by the key `K`. */
+  def groupingBy[A, K:Order](f: A => K): Process[A, (K, Vector[A])] =
+    grouping[A]((x, y) => f(x) === f(y)) outmap (v => f(v.head) -> v)
+
 }
