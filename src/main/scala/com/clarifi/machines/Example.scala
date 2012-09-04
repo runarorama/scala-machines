@@ -1,7 +1,6 @@
 package com.clarifi.machines
 
 import scalaz.{Reader => _, _}
-import scalaz.effect._
 import Scalaz._
 
 import java.io._
@@ -11,29 +10,25 @@ object Example {
   import Machine.ProcessCategory._
   import Plan._
 
-  def getFileLines[A](f: File, m: Process[String, A]): Procedure[IO, A] =
-    new Procedure[IO, A] {
+  def getFileLines[A](f: File, m: Process[String, A]): Procedure[A] =
+    new Procedure[A] {
       type K = String => Any
 
       val machine = m
 
-      def withDriver[R](k: Driver[IO, K] => IO[R]): IO[R] = {
-        bufferFile(f).bracket(closeReader)(r => {
-          val d = new Driver[IO, String => Any] {
-            def apply(k: String => Any) = rReadLn(r) map (_ map k)
-          }
-          k(d)
-        })
+      def withDriver[R](k: Driver[K] => R): R = {
+        val r = bufferFile(f)
+        val d = new Driver[String => Any] {
+          def apply(k: String => Any): Option[Any] = Option(r.readLine) map k
+        }
+        val result = k(d)
+        r.close
+        result
       }
     }
 
-  def bufferFile(f: File): IO[BufferedReader] =
-    IO { new BufferedReader(new FileReader(f)) }
-
-  /** Read a line from a buffered reader */
-  def rReadLn(r: BufferedReader): IO[Option[String]] = IO { Option(r.readLine) }
-
-  def closeReader(r: Reader): IO[Unit] = IO { r.close }
+  def bufferFile(f: File): BufferedReader =
+    new BufferedReader(new FileReader(f))
 
   def lineCount(fileName: String) =
     getFileLines(new File(fileName), Process(_ => 1)).execute
@@ -52,35 +47,3 @@ object Example {
 
 }
 
-trait TestDriver[A] {
-  type K
-  def machine: Machine[K, A]
-  def doIt(implicit A: Monoid[A]): A
-}
-object TestIt {
-  def feedLines[A](f: File, m: Process[String, A]): TestDriver[A] =
-    new TestDriver[A] {
-      type K = String => Any
-      val machine = m
-      def doIt(implicit A: Monoid[A]) = {
-        val r = new BufferedReader(new FileReader(f))
-        def go(cur: Machine[K, A], acc: A): A = cur match {
-          case Emit(x, next)  => go(next(), A.append(acc, x))
-          case Await(k, s, f) => Option(r.readLine) match {
-            case None    => go(f(), acc)
-            case Some(l) => go(k(s(l)), acc)
-          }
-          case Stop => acc
-        }
-        val x = go(machine, A.zero)
-        r.close
-        x
-      }
-    }
-
-  import Machine.ProcessCategory._
-  import Plan._
-
-  def lineWordCount(fileName: String) =
-    feedLines(new File(fileName), (id split Example.words) outmap (_.fold(_ => (1, 0), _ => (0, 1)))) doIt
-}

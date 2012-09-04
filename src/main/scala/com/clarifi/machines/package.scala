@@ -50,12 +50,12 @@ package object machines {
   type Source[+O] = Machine[Nothing, O]
 
   sealed class SourceW[+O](s: Source[O]) {
-    def procedure[M[+_]]: Procedure[M, O] =
-      new Procedure[M, O] {
+    def procedure: Procedure[O] =
+      new Procedure[O] {
         type K = Nothing
         def machine = s
-        def withDriver[R](f: Driver[M, Nothing] => M[R]) =
-          f(new Driver[M, Nothing] {
+        def withDriver[R](f: Driver[Nothing] => R) =
+          f(new Driver[Nothing] {
             def apply(k: Nothing) = k
           })
       }

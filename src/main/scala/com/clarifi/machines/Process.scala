@@ -54,7 +54,7 @@ object Process {
 
   /** Drops inputs while they match the predicate `p` and relays the rest. */
   def droppingWhile[A](p: A => Boolean): Process[A, A] = {
-    lazy val loop: Plan[A => Any, A, Unit] = await[A] flatMap (v => if (p(v)) loop else emit(v))
+    def loop: Plan[A => Any, A, Unit] = await[A] flatMap (v => if (p(v)) loop else emit(v))
     loop >> id
   }
 
