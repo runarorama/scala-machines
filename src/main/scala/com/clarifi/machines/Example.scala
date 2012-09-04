@@ -51,3 +51,36 @@ object Example {
       (id split words) outmap (_.fold(_ => (1, 0), _ => (0, 1)))) execute
 
 }
+
+trait TestDriver[A] {
+  type K
+  def machine: Machine[K, A]
+  def doIt(implicit A: Monoid[A]): A
+}
+object TestIt {
+  def feedLines[A](f: File, m: Process[String, A]): TestDriver[A] =
+    new TestDriver[A] {
+      type K = String => Any
+      val machine = m
+      def doIt(implicit A: Monoid[A]) = {
+        val r = new BufferedReader(new FileReader(f))
+        def go(cur: Machine[K, A], acc: A): A = cur match {
+          case Emit(x, next)  => go(next(), A.append(acc, x))
+          case Await(k, s, f) => Option(r.readLine) match {
+            case None    => go(f(), acc)
+            case Some(l) => go(k(s(l)), acc)
+          }
+          case Stop => acc
+        }
+        val x = go(machine, A.zero)
+        r.close
+        x
+      }
+    }
+
+  import Machine.ProcessCategory._
+  import Plan._
+
+  def lineWordCount(fileName: String) =
+    feedLines(new File(fileName), (id split Example.words) outmap (_.fold(_ => (1, 0), _ => (0, 1)))) doIt
+}
