@@ -12,7 +12,7 @@ import scalaz.syntax.monad._
  * that machine through the use of monadic effects. A `Procedure[M, T]`
  * is conceptually a monadic stream of elements of type `T`.
  */
-trait Procedure[M[_], A] { self =>
+trait Procedure[M[+_], A] { self =>
   type K
 
   def map[B](f: A => B): Procedure[M, B] =

@@ -11,7 +11,7 @@ import scalaz.syntax.monad._
  * A `Driver[M, K]` can step through a machine that requests inputs described by `K`
  * and have monadic effects of type `M` at each step.
  */
-trait Driver[M[_], K] { self =>
+trait Driver[M[+_], K] { self =>
 
   /**
    * Responds to a single request of type `K`.
@@ -25,17 +25,13 @@ trait Driver[M[_], K] { self =>
    */
   def drive[A, B](m: Machine[K, A])(g: A => M[B])
     (implicit B: Monoid[B], M: Monad[M]): M[B] = {
-    def go(m: Machine[K, A], z: B): M[B] = m match {
-      case Stop => M.pure(z)
-      case Emit(a, next) => for {
-        x <- g(a)
-        r <- go(next(), z |+| x)
-      } yield r
-      case Await(k, s, f) => for {
-        o <- apply(s)
-        r <- o map(x => go(k(x), z)) getOrElse (go(f(), z))
-      } yield r
-    }
+    def go(m: Machine[K, A], z: B): M[B] = Machine.step(m, apply, g) fold (
+      { case (b, next) => b flatMap (x => go(next, z |+| x)) },
+      x => x flatMap {
+        case Stop => z.pure[M]
+        case y => go(y, z)
+      }
+    )
     go(m, B.zero)
   }
 
