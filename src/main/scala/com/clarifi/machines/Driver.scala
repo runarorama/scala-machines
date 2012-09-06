@@ -25,13 +25,15 @@ trait Driver[M[+_], K] { self =>
    */
   def drive[A, B](m: Machine[K, A])(g: A => M[B])
     (implicit B: Monoid[B], M: Monad[M]): M[B] = {
-    def go(m: Machine[K, A], z: B): M[B] = Machine.step(m, apply, g) fold (
-      { case (b, next) => b flatMap (x => go(next, z |+| x)) },
-      x => x flatMap {
-        case Stop => z.pure[M]
-        case y => go(y, z)
+    def go(m: Machine[K, A], z: B): M[B] = m match {
+      case Emit(a, k) => {
+        val next = k()
+        g(a) flatMap (x => go(next, z |+| x))
       }
-    )
+      case Await(k, s, f) =>
+        apply(s).map(_.map(k).getOrElse(f())).flatMap(go(_, z))
+      case Stop => z.pure[M]
+    }
     go(m, B.zero)
   }
 

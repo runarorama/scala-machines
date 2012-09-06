@@ -47,6 +47,9 @@ object Machine {
   def flattened[K, I](h: Handle[K, List[I]]): Machine[K, I] =
     awaits(h) flatMap (is => traversePlan_(is)(emit)) repeatedly
 
+  /**
+   * Evaluate a single step of the machine.
+   */
   def step[M[+_]:Monad, K, O, A](m: Machine[K, O],
                                  feed: K => M[Option[Any]],
                                  z: O => M[A]): (M[A], Machine[K, O]) \/ M[Machine[K, O]] = m match {
