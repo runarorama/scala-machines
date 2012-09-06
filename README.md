@@ -1,7 +1,7 @@
 Machines
 ========
 
-Machines are demand-driven coroutines. They are similar to Pipes, Conduits, or Iteratees, but can support inputs of arbitrary complexity and are entirely pure. Instead of having monadic effects of its own, a `Machine` can be driven by a monadic `Driver` which can have effects when feeding the `Machine` input or when reading its output.
+Machines are demand-driven coroutines. They are similar to Pipes, Conduits, or Iteratees, but can support inputs of arbitrary complexity and are entirely pure. Instead of having monadic effects of its own, a `Machine` can be driven by a `Driver` which can have effects when feeding the `Machine` input or when reading its output.
 
 You design a `Machine` by writing a `Plan`. You then `compile` the machine if it is to run once to completion, or designate it to run `repeatedly`. `Plan` provides a monadic API for building machines, but `Machines` themselves do not form a monad.
 
