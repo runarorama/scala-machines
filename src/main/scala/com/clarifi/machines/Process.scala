@@ -85,4 +85,6 @@ object Process {
   def groupingBy[A, K:Order](f: A => K): Process[A, (K, Vector[A])] =
     grouping[A]((x, y) => f(x) === f(y)) outmap (v => f(v.head) -> v)
 
+  /** Wraps inputs in a Vector */
+  def wrapping[A]: Process[A, Vector[A]] = grouping((_, _) => true)
 }

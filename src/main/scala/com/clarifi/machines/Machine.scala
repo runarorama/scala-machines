@@ -6,6 +6,7 @@ package com.clarifi.machines
 import scalaz._
 import scalaz.syntax.arrow._
 import Scalaz._
+import \/._
 
 object Machine {
 
@@ -44,4 +45,16 @@ object Machine {
    */
   def flattened[F[_]:Foldable, K, I](h: Handle[K, F[I]]): Machine[K, I] =
     awaits(h) flatMap (is => traversePlan_(is)(emit)) repeatedly
+
+  /**
+   * Evaluate a single step of the machine.
+   */
+  def step[M[+_]:Monad, K, O, A](m: Machine[K, O],
+                                 feed: K => M[Option[Any]],
+                                 z: O => M[A]): (M[A], Machine[K, O]) \/ M[Machine[K, O]] = m match {
+    case Stop => right(Stop.pure[M])
+    case Emit(o, next) => left(z(o) -> next())
+    case Await(k, s, f) => right(feed(s).map(_.map(k).getOrElse(f())))
+  }
+
 }
