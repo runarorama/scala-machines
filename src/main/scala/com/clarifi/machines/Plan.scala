@@ -161,7 +161,7 @@ case class Await[+K, +O, +A](k: Any => Plan[K, O, A],
 /** Terminates the plan with a machine that accepts no input and emits no output. */
 case object Stop extends Plan[Nothing, Nothing, Nothing] {
   def flatMap[L >: Nothing, P >: Nothing, B](f: Nothing => Plan[L, P, B]) = this
-  def orElse[L >: Nothing, P >: Nothing, B >: Nothing](p: => Plan[L, P, B]) = this
+  def orElse[L >: Nothing, P >: Nothing, B >: Nothing](p: => Plan[L, P, B]) = p
 }
 
 object Plan {
