@@ -155,7 +155,7 @@ case class Await[+K, +O, +A](k: Any => Plan[K, O, A],
   def flatMap[L >: K, P >: O, B](f: A => Plan[L, P, B]) =
     Await(k andThen (_ flatMap f), success, () => failure() flatMap f)
   def orElse[L >: K, P >: O, B >: A](p: => Plan[L, P, B]) =
-    Await(k andThen (_ orElse p), success, () => p)
+    Await(k, success, () => failure() orElse p)
 }
 
 /** Terminates the plan with a machine that accepts no input and emits no output. */
