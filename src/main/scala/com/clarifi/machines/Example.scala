@@ -20,6 +20,7 @@ object Example {
       def withDriver[R](k: Driver[IO, K] => IO[R]): IO[R] = {
         bufferFile(f).bracket(closeReader)(r => {
           val d = new Driver[IO, String => Any] {
+            val M = Monad[IO]
             def apply(k: String => Any) = rReadLn(r) map (_ map k)
           }
           k(d)

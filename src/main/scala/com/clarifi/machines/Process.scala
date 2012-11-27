@@ -8,6 +8,7 @@ import Plan._
 
 import scalaz.syntax.monad._
 import scalaz.syntax.order._
+import scalaz.std.list._
 
 /**
  * A `Process` is a `Machine` that accepts inputs of type `I`
@@ -32,6 +33,21 @@ object Process {
   /** A `Process` that starts by emitting the contents of the given `Foldable`. */
   def prepended[F[_], A](as: F[A])(implicit F: Foldable[F]): Process[A, A] =
     traversePlan_(as)(emit) >> id
+
+  // p.supply(l.toList).foldLeft(IndexedSeq[B]())(_ :+ _)
+  def transduce[A,B](l: Iterable[A])(p: Process[A,B]): IndexedSeq[B] = {
+    @annotation.tailrec
+    def go(acc: IndexedSeq[B], s: Process[A,B], in: List[A]): IndexedSeq[B] =
+      s match {
+        case Stop => acc
+        case Emit(h,t) => go(acc :+ h, t(), in)
+        case Await(k, f, fb) => in match {
+          case h :: t => go(acc, k(f(h)), t)
+          case List() => go(acc, fb(), in)
+        }
+      }
+    go(IndexedSeq(), p, l.toList)
+  }
 
   /** A `Process` that relays inputs matching the given predicate. */
   def filtered[A](p: A => Boolean): Process[A, A] =

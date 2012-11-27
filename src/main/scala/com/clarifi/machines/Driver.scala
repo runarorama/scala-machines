@@ -6,6 +6,7 @@ package com.clarifi.machines
 import scalaz._
 import scalaz.syntax.monoid._
 import scalaz.syntax.monad._
+import scalaz.Id._
 
 /**
  * A `Driver[K]` can step through a machine that requests inputs described by `K`
@@ -13,17 +14,24 @@ import scalaz.syntax.monad._
  */
 trait Driver[M[+_], K] { self =>
 
+  implicit def M: Monad[M]
+
   /**
    * Responds to a single request of type `K`.
    */
   def apply(k: K): M[Option[Any]]
 
+  // def apply(k: K): Option[Any] // with side effects!!!
+  // def drive[A,B](m: Machine[K,A])(g: A => B)(implicit B: Monoid[B]): B // with side effects!
+  // def apply[B](m: Machine[K, B]): (M[Iterator[B]], M[Unit]) =
+    // defined in terms of signals
+
   /**
    * Drives a machine, responding to each request with `apply`, accumulating the
    * machine's output according to a `Monoid`, and running side-effects willy nilly.
    */
-  def drive[A, B](m: Machine[K, A])(g: A => M[B])
-    (implicit B: Monoid[B], M: Monad[M]): M[B] = {
+  def drive[A, B](m: Machine[K, A])(g: A => M[B])(implicit B: Monoid[B]):
+  M[B] = {
     def go(m: Machine[K, A], z: B): M[B] = m match {
       case Stop => z.pure[M]
       case Emit(a, k) =>
@@ -42,8 +50,31 @@ trait Driver[M[+_], K] { self =>
    */
   def *[L](d: Driver[M, L]): Driver[M, K \/ L] =
     new Driver[M, K \/ L] {
+      val M = self.M
       def apply(k: K \/ L): M[Option[Any]] =
         k.fold(self(_), d(_))
     }
+}
+
+object Driver {
+
+  /** Creates a driver from a (possibly) impure function, specializing
+    * drive to Id to avoid stack overflows.
+    */
+  def Id[K](drv: K => Option[Any], onFinish: => Unit = ()): Driver[Id,K] = new Driver[Id,K] {
+    val M = Monad[Id]
+    def apply(k: K) = drv(k)
+    override def drive[A, B](m: Machine[K, A])(g: A => B)(implicit B: Monoid[B]): B = {
+      @annotation.tailrec
+      def go(acc: B, m: Machine[K,A]): B = {
+        m match {
+          case Stop => onFinish; acc
+          case Emit(h, t) => go(B.append(acc, g(h)), t())
+          case Await(recv, k, fb) => go(acc, drv(k) map recv getOrElse fb())
+        }
+      }
+      go(B.zero, m)
+    }
+  }
 }
 
