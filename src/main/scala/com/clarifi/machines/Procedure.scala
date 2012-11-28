@@ -26,11 +26,13 @@ trait Procedure[M[+_], +A] { self =>
 
   def withDriver[R](f: Driver[M, K] => M[R]): M[R]
 
-  def foldMapM[R](f: A => M[R])(implicit R: Monoid[R], M: Monad[M]): M[R] =
+  def foldMapM[R](f: A => M[R])(implicit R: Monoid[R]): M[R] =
     withDriver(d => d.drive(machine)(f))
 
-  def execute[B >: A](implicit B: Monoid[B], M: Monad[M]): M[B] =
-    foldMapM[B](M.pure(_))
+  def foreach(f: A => M[Unit]): M[Unit] = foldMapM(f)(Monoid instance ((a, b) => { a; b }, ()))
+
+  def execute[B >: A](implicit B: Monoid[B]): M[B] =
+    withDriver(d => d.drive(machine)(d.M.pure(_:B)))
 
   def andThen[B](p: Process[A, B]): Procedure[M, B] =
     new Procedure[M, B] {

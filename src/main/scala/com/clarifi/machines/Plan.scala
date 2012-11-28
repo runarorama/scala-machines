@@ -96,15 +96,19 @@ sealed trait Plan[+K, +O, +A] {
     }
 
   /** Connect the output of the machine to the given `Process`. */
-  def andThen[P](p: Process[O, P]): Plan[K, P, A] = p match {
-    case Emit(o, next)  => Emit(o, () => this andThen next())
-    case Stop           => Stop
-    case Await(k, s, f) => this match {
-      case Stop           => Stop andThen f()
-      case Emit(o, next)  => next() andThen k(s(o))
-      case Await(l, t, g) => Await(l andThen (_ andThen p), t, () => g() andThen p)
-      case r@Return(_)    => r
+  final def andThen[P](p: Process[O, P]): Plan[K, P, A] = {
+    @annotation.tailrec
+    def rec(pl: Plan[K, O, A], p: Process[O, P]): Plan[K, P, A] = p match {
+      case Emit(o, next)  => Emit(o, () => pl andThen next())
+      case Stop           => Stop
+      case Await(k, s, f) => pl match {
+        case Stop           => rec(Stop, f())
+        case Emit(o, next)  => rec(next(), k(s(o)))
+        case Await(l, t, g) => Await(l andThen (_ andThen p), t, () => g() andThen p)
+        case r@Return(_)    => r
+      }
     }
+    rec(this, p)
   }
 
   /** Split the output into two streams at possibly differing rates. */
