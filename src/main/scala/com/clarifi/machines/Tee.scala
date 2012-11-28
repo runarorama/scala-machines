@@ -46,7 +46,7 @@ object Tee {
 
   /** A merge outer join according to keys of type `K`. */
   def mergeOuterJoin[A, B, K:Order](f: A => K, g: B => K): Tee[A, B, These[A, B]] =
-    tee(groupingBy(f), groupingBy(g), mergeOuterChunks[A, B, K])
+    tee(groupingBy(f), groupingBy(g))(mergeOuterChunks)
 
   /**
    * A merge outer join of chunks according to keys of type `K`.
@@ -89,26 +89,26 @@ object Tee {
    */
   def tee[A, AA, B, BB, C](
     ma: Machine[A, AA],
-    mb: Machine[B, BB],
-    t: Tee[AA, BB, C]): Machine[A \/ B, C] = t match {
+    mb: Machine[B, BB]
+  )(t: Tee[AA, BB, C]): Machine[A \/ B, C] = t match {
       case Stop => Stop
-      case Emit(o, k) => Emit(o, () => tee(ma, mb, k()))
+      case Emit(o, k) => Emit(o, () => tee(ma, mb)(k()))
       case Await(k, s, f) => s.fold(
         kl => ma match {
-          case Stop => tee(ma, mb, f())
-          case Emit(a, next) => tee(next(), mb, k(kl(a)))
+          case Stop => tee(ma, mb)(f())
+          case Emit(a, next) => tee(next(), mb)(k(kl(a)))
           case Await(g, kg, fg) =>
-            Await(g andThen ((m: Machine[A, AA]) => tee(m, mb, t)),
+            Await(g andThen ((m: Machine[A, AA]) => tee(m, mb)(t)),
                   \/.left(kg),
-                  () => tee(fg(), mb, t))
+                  () => tee(fg(), mb)(t))
         },
         kr => mb match {
-          case Stop => tee(ma, mb, f())
-          case Emit(b, next) => tee(ma, next(), k(kr(b)))
+          case Stop => tee(ma, mb)(f())
+          case Emit(b, next) => tee(ma, next())(k(kr(b)))
           case Await(g, kg, fg) =>
-            Await(g andThen ((m: Machine[B, BB]) => tee(ma, m, t)),
+            Await(g andThen ((m: Machine[B, BB]) => tee(ma, m)(t)),
                   \/.right(kg),
-                  () => tee(ma, fg(), t))
+                  () => tee(ma, fg())(t))
         }
       )
   }

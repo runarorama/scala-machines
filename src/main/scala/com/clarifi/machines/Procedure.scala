@@ -39,12 +39,12 @@ trait Procedure[M[+_], +A] { self =>
       def withDriver[R](f: Driver[M, K] => M[R]) = self withDriver f
     }
 
-  def tee[B,C](p: Procedure[M, B], t: Tee[A, B, C]): Procedure[M, C] =
+  def tee[B,C](p: Procedure[M, B])(t: Tee[A, B, C]): Procedure[M, C] =
     new Procedure[M, C] {
 
       type K = self.K \/ p.K
 
-      def machine = Tee.tee(self.machine, p.machine, t)
+      def machine = Tee.tee(self.machine, p.machine)(t)
 
       def withDriver[R](k: Driver[M, K] => M[R]): M[R] =
         self.withDriver(d1 => p.withDriver(d2 => k(d1 * d2)))

@@ -81,10 +81,10 @@ package object machines {
     import Machine.ProcessCategory._
 
     def addL[A](p: Process[A, I]): Tee[A, J, O] =
-      tee(p, id, t)
+      tee(p, id[J])(t)
 
     def addR[B](p: Process[B, J]): Tee[I, B, O] =
-      tee(id, p, t)
+      tee(id[I], p)(t)
 
     def capL[A](s: Source[I]): Process[J, O] =
       addL(s) inmap cappedT
