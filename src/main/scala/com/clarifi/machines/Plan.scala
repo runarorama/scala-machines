@@ -76,7 +76,7 @@ sealed trait Plan[+K, +O, +A] {
 
   /** A `Machine` that executes the `Plan` indefinitely. */
   def repeatedly: Machine[K, O] = {
-    def r : Machine[K, O] = this >> r
+    lazy val r : Machine[K, O] = this >> r
     r
   }
 
