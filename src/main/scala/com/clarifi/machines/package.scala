@@ -1,6 +1,7 @@
 package com.clarifi
 
 import scalaz._
+import scalaz.Id.Id
 import syntax.foldable._
 
 package object machines {
@@ -50,6 +51,13 @@ package object machines {
   type Source[+O] = Machine[Nothing, O]
 
   sealed class SourceW[+O](s: Source[O]) {
+    def idProcedure: Procedure[Id, O] = new Procedure[Id, O] {
+      type K = Nothing
+      def machine = s
+      def withDriver[R](f: Driver[Id, Nothing] => R): R =
+        f(Driver.Id[Nothing](identity))
+    }
+
     def procedure[M[+_]: Monad]: Procedure[M, O] =
       new Procedure[M, O] {
         type K = Nothing

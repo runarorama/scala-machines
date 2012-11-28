@@ -58,23 +58,30 @@ trait Driver[M[+_], K] { self =>
 
 object Driver {
 
+  private def driveId[A, B, K](drv: K => Option[Any]
+                             )(m: Machine[K, A])(g: A => B)(implicit B: Monoid[B]): B = {
+    @annotation.tailrec
+    def go(acc: B, m: Machine[K,A]): B = {
+      m match {
+        case Stop => acc
+        case Emit(h, t) =>
+          val r = g(h) // we are left folding, so Monoid should be strict, otherwise stack overflow / memory leak
+          go(B.append(acc, r), t())
+        case Await(recv, k, fb) => go(acc, drv(k) map recv getOrElse fb())
+      }
+    }
+    go(B.zero, m)
+  }
+
   /** Creates a driver from a (possibly) impure function, specializing
     * drive to Id to avoid stack overflows.
     */
-  def Id[K](drv: K => Option[Any], onFinish: => Unit = ()): Driver[Id,K] = new Driver[Id,K] {
+  def Id[K](drv: K => Option[Any]): Driver[Id,K] = new Driver[Id,K] {self =>
     val M = Monad[Id]
     def apply(k: K) = drv(k)
-    override def drive[A, B](m: Machine[K, A])(g: A => B)(implicit B: Monoid[B]): B = {
-      @annotation.tailrec
-      def go(acc: B, m: Machine[K,A]): B = {
-        m match {
-          case Stop => onFinish; acc
-          case Emit(h, t) => go(B.append(acc, g(h)), t())
-          case Await(recv, k, fb) => go(acc, drv(k) map recv getOrElse fb())
-        }
-      }
-      go(B.zero, m)
-    }
+    override def drive[A, B](m: Machine[K, A])(g: A => B)(implicit B: Monoid[B]): B =
+      driveId(drv)(m)(g)
+    override def *[L](d: Driver[Id, L]): Driver[Id, K \/ L] = Id(_ fold (self.apply, d.apply))
   }
 }
 
