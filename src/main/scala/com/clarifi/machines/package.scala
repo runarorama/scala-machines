@@ -113,6 +113,6 @@ package object machines {
   type Joiner[-I, -J, +O] = Machine[(I => Any, J => Any), O]
 
   def traversePlan_[F[_], K, O, A](as: F[A])(f: A => Plan[K, O, Unit])(implicit F: Foldable[F]): Plan[K, O, Unit] =
-    as.traverse_[({type λ[α] = Plan[K, O, α]})#λ](f)(planInstance[K, O])
+    as.foldRight(Return(()): Plan[K,O,Unit])((a,p) => f(a) >> p)
 }
 
