@@ -3,6 +3,8 @@
 
 package com.clarifi.machines
 
+import collection.immutable.LinearSeq
+
 import scalaz._
 import Plan._
 
@@ -35,18 +37,17 @@ object Process {
     traversePlan_(as)(emit) >> id
 
   // p.supply(l.toList).foldLeft(IndexedSeq[B]())(_ :+ _)
-  def transduce[A,B](l: Iterable[A])(p: Process[A,B]): IndexedSeq[B] = {
+  def transduce[A,B](l: => LinearSeq[A])(p: Process[A,B]): IndexedSeq[B] = {
     @annotation.tailrec
-    def go(acc: IndexedSeq[B], s: Process[A,B], in: List[A]): IndexedSeq[B] =
+    def go(acc: IndexedSeq[B], s: Process[A,B], in: LinearSeq[A]): IndexedSeq[B] =
       s match {
         case Stop => acc
         case Emit(h,t) => go(acc :+ h, t(), in)
-        case Await(k, f, fb) => in match {
-          case h :: t => go(acc, k(f(h)), t)
-          case List() => go(acc, fb(), in)
-        }
+        case Await(k, f, fb) =>
+          if (in.isEmpty) go(acc, fb(), in)
+          else go(acc, k(f(in.head)), in.tail)
       }
-    go(IndexedSeq(), p, l.toList)
+    go(IndexedSeq(), p, l)
   }
 
   /** A `Process` that relays inputs matching the given predicate. */

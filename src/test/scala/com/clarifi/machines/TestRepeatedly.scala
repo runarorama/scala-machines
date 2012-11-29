@@ -18,9 +18,14 @@ object TestRepeatedly extends Properties("Tee") {
     true
   }
   property("repeated emits don't stack overflow given huge input") = secure {
-    Process.transduce(List.range(0,100000)) {
-      List.range(0,100000).map(emit[Int]).reduceLeft((h,t) => h flatMap (_ => t)).compile
+    Process.transduce(List(0)) {
+      traversePlan_(List.range(0,100000))(emit).compile
     }
+    true
+  }
+  property("filtered") = secure {
+    Process.transduce(Stream.from(1)) { Process.filtered[Int](_ % 2 == 0) andThen Process.taking(10000) }
+    Process.transduce(Stream.from(1)) { Process.takingWhile(_ < 10000) }
     true
   }
 }
