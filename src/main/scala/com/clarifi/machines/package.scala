@@ -1,6 +1,7 @@
 package com.clarifi
 
 import scalaz._
+import scalaz.Id.Id
 import syntax.foldable._
 
 package object machines {
@@ -50,12 +51,20 @@ package object machines {
   type Source[+O] = Machine[Nothing, O]
 
   sealed class SourceW[+O](s: Source[O]) {
-    def procedure[M[+_]]: Procedure[M, O] =
+    def idProcedure: Procedure[Id, O] = new Procedure[Id, O] {
+      type K = Nothing
+      def machine = s
+      def withDriver[R](f: Driver[Id, Nothing] => R): R =
+        f(Driver.Id[Nothing](identity))
+    }
+
+    def procedure[M[+_]: Monad]: Procedure[M, O] =
       new Procedure[M, O] {
         type K = Nothing
         def machine = s
         def withDriver[R](f: Driver[M, Nothing] => M[R]) =
           f(new Driver[M, Nothing] {
+            val M = Monad[M]
             def apply(k: Nothing) = k
           })
       }
@@ -72,10 +81,10 @@ package object machines {
     import Machine.ProcessCategory._
 
     def addL[A](p: Process[A, I]): Tee[A, J, O] =
-      tee(p, id, t)
+      tee(p, id[J])(t)
 
     def addR[B](p: Process[B, J]): Tee[I, B, O] =
-      tee(id, p, t)
+      tee(id[I], p)(t)
 
     def capL[A](s: Source[I]): Process[J, O] =
       addL(s) inmap cappedT
@@ -104,6 +113,6 @@ package object machines {
   type Joiner[-I, -J, +O] = Machine[(I => Any, J => Any), O]
 
   def traversePlan_[F[_], K, O, A](as: F[A])(f: A => Plan[K, O, Unit])(implicit F: Foldable[F]): Plan[K, O, Unit] =
-    as.traverse_[({type λ[α] = Plan[K, O, α]})#λ](f)(planInstance[K, O])
+    as.foldRight(Return(()): Plan[K,O,Unit])((a,p) => f(a) >> p)
 }
 
