@@ -25,20 +25,23 @@ object Tee {
     ka ?|? kb match {
       case LT => traversePlan_(ca)(a =>
         emit(This(a))) >> awaits(left[(K, Vector[A])]) flatMap {
-          case (kap, cap) => mergeOuterAux(kap, cap, kb, cb)
+          case (kap, cap) =>
+            assume(kap gte ka, "left side ordered")
+            mergeOuterAux(kap, cap, kb, cb)
         } orElse flattened(right[Vector[B]]).
                    inmap(_.map(_.compose((p: (K, Vector[B])) => p._2))).
                    outmap(That(_))
       case GT => traversePlan_(cb)(b =>
         emit(That(b))) >> awaits(right[(K, Vector[B])]) flatMap {
-          case (kbp, cbp) => mergeOuterAux(ka, ca, kbp, cbp)
+          case (kbp, cbp) =>
+            assume(kbp gte kb, "right side ordered")
+            mergeOuterAux(ka, ca, kbp, cbp)
         } orElse flattened(left[Vector[A]]).
                    inmap(_.bimap(_.compose((p: (K, Vector[A])) => p._2),
                                  x => x)).outmap(This(_))
-      case EQ => traversePlan_(for {
-          a <- ca
-          b <- cb
-        } yield Both(a, b))(emit _) >> mergeOuterChunks
+      case EQ => traversePlan_ {
+        for { a <- ca; b <- cb } yield Both(a, b)
+      } (emit _) >> mergeOuterChunks
     }
   }
 
