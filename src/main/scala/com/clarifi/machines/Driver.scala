@@ -10,7 +10,7 @@ import scalaz.Id._
 
 /**
  * A `Driver[K]` can step through a machine that requests inputs described by `K`
- * and have side-effects at each step.
+ * and have effects described by `M` at each step.
  */
 trait Driver[M[+_], K] { self =>
 
@@ -28,14 +28,14 @@ trait Driver[M[+_], K] { self =>
 
   /**
    * Drives a machine, responding to each request with `apply`, accumulating the
-   * machine's output according to a `Monoid`, and running side-effects willy nilly.
+   * machine's output according to a `Monoid`.
    */
   def drive[A, B](m: Machine[K, A])(g: A => M[B])(implicit B: Monoid[B]): M[B] =
     driveLeft(m)(g)(B.zero)(_ |+| _)
 
   /**
    * Drives a machine, responding to each request with `apply`, accumulating the
-   * machine's output according to a fold left interface, and running side-effects willy nilly.
+   * machine's output according to a left fold interface.
    */
   def driveLeft[A, B, C](m: Machine[K, A])(g: A => M[B])(initial: C)(f: (C, B) => C): M[C] = {
     def go(m: Machine[K, A], z: C): M[C] = m match {

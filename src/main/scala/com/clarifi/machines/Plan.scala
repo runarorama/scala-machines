@@ -12,7 +12,7 @@ import scalaz._
  * inputs selected by `K` and writes values of type `O`. The `Plan` has
  * intermediate results of type `A` which are placeholders for further plans.
  */
-sealed trait Plan[+K, +O, +A] {
+sealed trait Plan[K, +O, +A] {
 
   /**
    * Substitute into the variables in this `Plan`.
