@@ -31,13 +31,13 @@ trait Driver[M[+_], K] { self =>
    * machine's output according to a `Monoid`, and running side-effects willy nilly.
    */
   def drive[A, B](m: Machine[K, A])(g: A => M[B])(implicit B: Monoid[B]): M[B] =
-    drivef(m)(g)(B.zero)(_ |+| _)
+    driveLeft(m)(g)(B.zero)(_ |+| _)
 
   /**
    * Drives a machine, responding to each request with `apply`, accumulating the
    * machine's output according to a fold left interface, and running side-effects willy nilly.
    */
-  def drivef[A, B, C](m: Machine[K, A])(g: A => M[B])(initial: C)(f: (C, B) => C): M[C] = {
+  def driveLeft[A, B, C](m: Machine[K, A])(g: A => M[B])(initial: C)(f: (C, B) => C): M[C] = {
     def go(m: Machine[K, A], z: C): M[C] = m match {
       case Stop =>
         z.pure[M]

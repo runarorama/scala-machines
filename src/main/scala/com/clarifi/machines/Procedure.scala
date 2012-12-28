@@ -34,8 +34,8 @@ trait Procedure[M[+_], +A] { self =>
   def execute[B >: A](implicit B: Monoid[B]): M[B] =
     withDriver(d => d.drive(machine)(d.M.pure(_:B)))
 
-  def executef[B >: A, C](initial: C)(f: (C, B) => C): M[C] =
-    withDriver(d => d.drivef(machine)(d.M.pure(_:B))(initial)(f))
+  def executeLeft[B >: A, C](initial: C)(f: (C, B) => C): M[C] =
+    withDriver(d => d.driveLeft(machine)(d.M.pure(_:B))(initial)(f))
 
   def andThen[B](p: Process[A, B]): Procedure[M, B] =
     new Procedure[M, B] {
