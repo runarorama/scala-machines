@@ -73,8 +73,10 @@ object Tee {
   def hashJoin[A, B, K](f: A => K, g: B => K): Tee[A, B, (A, B)] = {
     def build(m: Map[K, Vector[A]]): Plan[T[A, B], Nothing, Map[K, Vector[A]]] = (for {
       a  <- awaits(left[A])
-      val ak = f(a)
-      mp <- build(m.updated(ak, m.getOrElse(ak, Vector.empty) :+ a))
+      mp <- {
+        val ak = f(a)
+        build(m.updated(ak, m.getOrElse(ak, Vector.empty) :+ a))
+      }
     } yield mp) orElse Return(m)
     for {
       m <- build(Map())

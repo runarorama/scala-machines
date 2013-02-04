@@ -29,7 +29,7 @@ trait Procedure[M[+_], +A] { self =>
   def foldMapM[R](f: A => M[R])(implicit R: Monoid[R]): M[R] =
     withDriver(d => d.drive(machine)(f))
 
-  def foreach(f: A => M[Unit]): M[Unit] = foldMapM(f)(Monoid instance ((a, b) => { a; b }, ()))
+  def foreach(f: A => M[Unit]): M[Unit] = foldMapM(f)(Monoid instance ((_, b) => b, ()))
 
   def execute[B >: A](implicit B: Monoid[B]): M[B] =
     withDriver(d => d.drive(machine)(d.M.pure(_:B)))
@@ -56,4 +56,3 @@ trait Procedure[M[+_], +A] { self =>
     }
 
 }
-
