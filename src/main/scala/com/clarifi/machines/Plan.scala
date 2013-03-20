@@ -82,7 +82,7 @@ sealed trait Plan[+K, +O, +A] {
 
   /** Repeat this plan `n` times. */
   def replicateM_(n: Int): Plan[K, O, Unit] = n match {
-    case 0 => Return(())
+    case n if n <= 0 => Return(())
     case n => this >> this.replicateM_(n - 1)
   }
 
