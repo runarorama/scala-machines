@@ -1,6 +1,5 @@
 package com.clarifi.machines
 
-import scalaz.Id._
 import scalaz.std.list._
 
 import org.scalacheck.{Gen, Properties, Prop}
@@ -21,11 +20,12 @@ object TestTee extends Properties("Tee") {
 
   val randomPairs = Gen.listOf(
     for {
-      n <- Gen.choose(0,10)
-      m <- Gen.choose(0,10)
-    } yield (n,m)) map (_.sortBy(_._1))
+      k <- Gen.choose(0,10)
+      v <- Gen.choose(0,10)
+    } yield (k,v)) map (_.sortBy(_._1))
+  // Gen.choose is buggy, sometimes emits negative numbers, but that's not a problem here
 
-  property("merge outer join doesn't lose anything") = forAll(randomPairs, randomPairs) {
+  property("merge outer join doesn't lose any keys") = forAll(randomPairs, randomPairs) {
     (l1, l2) => {
       val results = mergeOuterJoin[(Int, Int), (Int, Int), Int](_._1, _._1).
         capL(source(l1)).cap(source(l2)).foldMap(List(_))
@@ -34,8 +34,51 @@ object TestTee extends Properties("Tee") {
       results.map(t => t match {
         case Both(a, b) => a._1
         case This(a) => a._1
-        case That(a) => a._1
-      }).toSet.equals(reference)
+        case That(b) => b._1
+      }).toSet ?= reference
+    }
+  }
+
+  property("merge outer join doesn't lose any values") = forAll(randomPairs, randomPairs) {
+    (l1, l2) => {
+      val rawResult = mergeOuterJoin[(Int, Int), (Int, Int), Int](_._1, _._1).
+        capL(source(l1)).cap(source(l2)).foldMap(List(_))
+      val result = rawResult.flatMap(_ match {
+        case Both(a, b) => List(a, b)
+        case This(a) => List(a)
+        case That(b) => List(b)
+      }).groupBy(_._1).mapValues(_.toSet)
+
+      val reference = (l1 ++ l2).groupBy(_._1).mapValues(_.sorted.toSet)
+
+      result ?= reference
+    }
+  }
+
+  property("hash join works") = forAll(randomPairs, randomPairs) {
+    (l1, l2) => {
+      import scalaz._
+      import Scalaz._
+
+      val results = hashJoin[(Int, Int), (Int, Int), Int](_._1, _._1).
+        capL(source(l1)).cap(source(l2)).foldMap(List(_)).map({
+        case ((k, v1), (_, v2)) => (k, (v1, v2))
+      }).sorted
+
+      def cartesian[A](a: Seq[A], b: Seq[A]) = {
+        for {
+          aa <- a
+          bb <- b
+        } yield (aa, bb)
+      }
+
+      val reference = l1.groupBy(_._1).intersectWith(l2.groupBy(_._1)) {
+        (v1, v2) => cartesian(v1, v2)
+      }.toList.flatMap(_ match {
+        case (k, pairs) => pairs.map(v => (k, (v._1._2, v._2._2)))
+      }).sorted
+
+      results ?= reference
     }
   }
 }
