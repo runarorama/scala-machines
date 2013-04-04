@@ -46,6 +46,11 @@ sealed trait Plan[+K, +O, +A] {
     case Stop => Stop
   }
 
+  def filter(f: A => Boolean): Plan[K, O, A] = withFilter(f)
+
+  def withFilter(f: A => Boolean): Plan[K, O, A] =
+    flatMap { x => if (f(x)) Return(x) else Stop }
+
   /** Accumulate the outputs of the machine in a `Monoid`. */
   def foldMap[B](f: O => B)(implicit M: Monoid[B]): B = this match {
     case Emit(o, next)        => M.append(f(o), next() foldMap f)
@@ -82,7 +87,7 @@ sealed trait Plan[+K, +O, +A] {
 
   /** Repeat this plan `n` times. */
   def replicateM_(n: Int): Plan[K, O, Unit] = n match {
-    case 0 => Return(())
+    case n if n <= 0 => Return(())
     case n => this >> this.replicateM_(n - 1)
   }
 
