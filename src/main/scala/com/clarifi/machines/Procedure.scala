@@ -9,8 +9,8 @@ import scalaz.syntax.monad._
 
 /**
  * A `Procedure` is a `Machine` together with a driver for driving
- * that machine through the use of side-effects. A `Procedure[T]`
- * is conceptually a stream of elements of type `T`.
+ * that machine through the use of effects. A `Procedure[M, T]`
+ * is conceptually a stream of elements of type `T` produced with effects described by `M`.
  */
 trait Procedure[M[+_], +A] { self =>
   type K
@@ -29,10 +29,13 @@ trait Procedure[M[+_], +A] { self =>
   def foldMapM[R](f: A => M[R])(implicit R: Monoid[R]): M[R] =
     withDriver(d => d.drive(machine)(f))
 
-  def foreach(f: A => M[Unit]): M[Unit] = foldMapM(f)(Monoid instance ((a, b) => { a; b }, ()))
+  def foreach(f: A => M[Unit]): M[Unit] = foldMapM(f)(Monoid instance ((_, b) => b, ()))
 
   def execute[B >: A](implicit B: Monoid[B]): M[B] =
     withDriver(d => d.drive(machine)(d.M.pure(_:B)))
+
+  def foldLeftM[B >: A, C](initial: C)(f: (C, B) => C): M[C] =
+    withDriver(d => d.driveLeft(machine)(d.M.pure(_:B))(initial)(f))
 
   def andThen[B](p: Process[A, B]): Procedure[M, B] =
     new Procedure[M, B] {
@@ -53,4 +56,3 @@ trait Procedure[M[+_], +A] { self =>
     }
 
 }
-

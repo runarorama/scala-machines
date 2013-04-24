@@ -10,7 +10,7 @@ import scalaz.Id._
 
 /**
  * A `Driver[K]` can step through a machine that requests inputs described by `K`
- * and have side-effects at each step.
+ * and have effects described by `M` at each step.
  */
 trait Driver[M[+_], K] { self =>
 
@@ -28,20 +28,28 @@ trait Driver[M[+_], K] { self =>
 
   /**
    * Drives a machine, responding to each request with `apply`, accumulating the
-   * machine's output according to a `Monoid`, and running side-effects willy nilly.
+   * machine's output according to a `Monoid`.
    */
-  def drive[A, B](m: Machine[K, A])(g: A => M[B])(implicit B: Monoid[B]):
-  M[B] = {
-    def go(m: Machine[K, A], z: B): M[B] = m match {
-      case Stop => z.pure[M]
+  def drive[A, B](m: Machine[K, A])(g: A => M[B])(implicit B: Monoid[B]): M[B] =
+    driveLeft(m)(g)(B.zero)(_ |+| _)
+
+  /**
+   * Drives a machine, responding to each request with `apply`, accumulating the
+   * machine's output according to a left fold interface.
+   */
+  def driveLeft[A, B, C](m: Machine[K, A])(g: A => M[B])(initial: C)(f: (C, B) => C): M[C] = {
+    def go(m: Machine[K, A], z: C): M[C] = m match {
+      case Stop =>
+        z.pure[M]
       case Emit(a, k) =>
         val next = k()
-        g(a) flatMap (x => go(next, z |+| x))
+        g(a) flatMap (x => go(next, f(z, x)))
       case Await(k, s, f) =>
         apply(s).map(_.map(k).getOrElse(f())).flatMap(go(_, z))
     }
-    go(m, B.zero)
+    go(m, initial)
   }
+
 
   /**
    * A driver of `K` can be composed with a driver of `L` to form a driver of
