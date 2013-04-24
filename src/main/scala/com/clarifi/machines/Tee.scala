@@ -28,7 +28,8 @@ object Tee {
           case (kap, cap) =>
             assume(kap gte ka, "left side ordered")
             mergeOuterAux(kap, cap, kb, cb)
-        } orElse flattened(right[Vector[B]]).
+        } orElse traversePlan_(cb)(b => emit(That(b))) >>
+                   flattened(right[Vector[B]]).
                    inmap(_.map(_.compose((p: (K, Vector[B])) => p._2))).
                    outmap(That(_))
       case GT => traversePlan_(cb)(b =>
@@ -36,7 +37,8 @@ object Tee {
           case (kbp, cbp) =>
             assume(kbp gte kb, "right side ordered")
             mergeOuterAux(ka, ca, kbp, cbp)
-        } orElse flattened(left[Vector[A]]).
+        } orElse traversePlan_(ca)(a => emit(This(a))) >>
+                   flattened(left[Vector[A]]).
                    inmap(_.bimap(_.compose((p: (K, Vector[A])) => p._2),
                                  x => x)).outmap(This(_))
       case EQ => traversePlan_ {
@@ -60,7 +62,8 @@ object Tee {
     awaits(left[(K, Vector[A])]) flatMap {
       case (ka, as) => awaits(right[(K, Vector[B])]) flatMap {
         case (kb, bs) => mergeOuterAux(ka, as, kb, bs)
-      } orElse flattened(left[Vector[A]]).
+      } orElse traversePlan_(as)(a => emit(This(a))) >>
+               flattened(left[Vector[A]]).
                inmap(_.bimap(_.compose((p: (K, Vector[A])) => p._2), x => x)).
                outmap(This(_))
     } orElse flattened(right[Vector[B]]).
@@ -73,8 +76,10 @@ object Tee {
   def hashJoin[A, B, K](f: A => K, g: B => K): Tee[A, B, (A, B)] = {
     def build(m: Map[K, Vector[A]]): Plan[T[A, B], Nothing, Map[K, Vector[A]]] = (for {
       a  <- awaits(left[A])
-      val ak = f(a)
-      mp <- build(m.updated(ak, m.getOrElse(ak, Vector.empty) :+ a))
+      mp <- {
+        val ak = f(a)
+        build(m.updated(ak, m.getOrElse(ak, Vector.empty) :+ a))
+      }
     } yield mp) orElse Return(m)
     for {
       m <- build(Map())
