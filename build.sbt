@@ -6,9 +6,9 @@ libraryDependencies += "org.scalaz" %% "scalaz-effect" % "7.0.0-M8"
 
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.10.0" % "test"
 
-scalaVersion := "2.9.2"
+scalaVersion := "2.10.2"
 
-crossScalaVersions := Seq("2.9.2", "2.10.1")
+crossScalaVersions := Seq("2.9.2", "2.10.1", "2.10.2")
 
 scalacOptions ++= Seq("-deprecation", "-unchecked")
 
