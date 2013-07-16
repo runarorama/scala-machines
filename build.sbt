@@ -1,8 +1,8 @@
 name := "machines"
 
-libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.0.0-M8"
+libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.0.2"
 
-libraryDependencies += "org.scalaz" %% "scalaz-effect" % "7.0.0-M8"
+libraryDependencies += "org.scalaz" %% "scalaz-effect" % "7.0.2"
 
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.10.0" % "test"
 
