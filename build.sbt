@@ -1,5 +1,9 @@
 name := "machines"
 
+version := "1.0"
+
+description := "Streaming I/O for Scala"
+
 libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.0.2"
 
 libraryDependencies += "org.scalaz" %% "scalaz-effect" % "7.0.2"
@@ -18,3 +22,10 @@ scalacOptions <++= scalaVersion map {
   case _ =>
     Seq("-Ydependent-method-types")
 }
+
+seq(bintraySettings:_*)
+
+licenses += ("MIT", url("http://opensource.org/licenses/MIT"))
+
+publishMavenStyle := true
+
