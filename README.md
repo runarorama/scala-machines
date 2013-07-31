@@ -8,3 +8,5 @@ You design a `Machine` by writing a `Plan`. You then `compile` the machine if it
 Simple machines that read from one input source are called a `Process` and processes form a `Category`. More generally you can attach a `Process` to the output of any type of `Machine`, yielding a new `Machine`.
 
 More complicated machines provide other ways of connecting to them.
+
+Binary packages available at https://bintray.com/runarorama/maven/machines
