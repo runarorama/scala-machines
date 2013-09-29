@@ -86,10 +86,10 @@ package object machines {
     def addR[B](p: Process[B, J]): Tee[I, B, O] =
       tee(id[I], p)(t)
 
-    def capL[A](s: Source[I]): Process[J, O] =
+    def capL(s: Source[I]): Process[J, O] =
       addL(s) inmap cappedT
 
-    def capR[B](s: Source[J]): Process[I, O] =
+    def capR(s: Source[J]): Process[I, O] =
       addR(s) inmap cappedT
   }
   implicit def teew[I, J, O](tee: Tee[I, J, O]): TeeW[I, J, O] = new TeeW(tee)
