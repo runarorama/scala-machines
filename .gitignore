@@ -9,3 +9,6 @@ tags
 *~
 *#
 z_local.sbt
+.classpath
+.project
+.settings/
