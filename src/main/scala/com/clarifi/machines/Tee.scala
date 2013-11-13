@@ -74,13 +74,11 @@ object Tee {
    * A natural hash join according to keys of type `K`.
    */
   def hashJoin[A, B, K](f: A => K, g: B => K): Tee[A, B, (A, B)] = {
-    def build(m: Map[K, Vector[A]]): Plan[T[A, B], Nothing, Map[K, Vector[A]]] = (for {
-      a  <- awaits(left[A])
-      mp <- {
+    def build(m: Map[K, Vector[A]]): Plan[T[A, B], Nothing, Map[K, Vector[A]]] =
+      awaits(left[A]) flatMap { a =>
         val ak = f(a)
         build(m.updated(ak, m.getOrElse(ak, Vector.empty) :+ a))
-      }
-    } yield mp) orElse Return(m)
+      } orElse Return(m)
     for {
       m <- build(Map())
       r <- (awaits(right[B]) flatMap (b => {
