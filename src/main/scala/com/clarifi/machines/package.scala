@@ -5,8 +5,6 @@ import scalaz.Id.Id
 import syntax.foldable._
 
 package object machines {
-  import Plan._
-
   type T[-A, -B] = (A => Any) \/ (B => Any)
 
   type Y[-A, -B] = These[A => Any, B => Any]
@@ -35,7 +33,6 @@ package object machines {
 
   sealed class ProcessW[-I, +O](p: Process[I, O]) {
     import Process._
-    import Machine.ProcessCategory._
 
     def cap(r: Source[I]): Source[O] =
       r andThen p

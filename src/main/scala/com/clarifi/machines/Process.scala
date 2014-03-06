@@ -8,9 +8,7 @@ import collection.immutable.LinearSeq
 import scalaz._
 import Plan._
 
-import scalaz.syntax.monad._
 import scalaz.syntax.order._
-import scalaz.std.list._
 
 /**
  * A `Process` is a `Machine` that accepts inputs of type `I`

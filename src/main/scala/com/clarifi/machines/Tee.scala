@@ -1,18 +1,14 @@
 package com.clarifi.machines
 
 import scalaz._
-import scalaz.syntax.order._
 import Scalaz._
 import Ordering._
 
 import Machine._
 
 object Tee {
-  import ProcessCategory._
   import Plan._
 
-  import scalaz.syntax.order._
-  import scalaz.\/._
   import scalaz.std.vector._
 
   private def mergeOuterAux[A, B, K:Order](ka: K,
