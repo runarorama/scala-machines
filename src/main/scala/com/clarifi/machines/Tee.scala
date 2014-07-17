@@ -92,27 +92,35 @@ object Tee {
   def tee[A, AA, B, BB, C](
     ma: Machine[A, AA],
     mb: Machine[B, BB]
-  )(t: Tee[AA, BB, C]): Machine[A \/ B, C] = t match {
+  )(t: Tee[AA, BB, C]): Machine[A \/ B, C] = {
+    @annotation.tailrec
+    def annihilate(
+      ma: Machine[A,AA],
+      mb: Machine[B,BB],
+      t: Tee[AA,BB,C]
+    ): Machine[A \/ B, C] = t match {
       case Stop => Stop
       case Emit(o, k) => Emit(o, () => tee(ma, mb)(k()))
-      case Await(k, s, f) => s.fold(
-        kl => ma match {
-          case Stop => tee(ma, mb)(f())
-          case Emit(a, next) => tee(next(), mb)(k(kl(a)))
+      case Await(k, s, f) => s match {
+        case -\/(kl) => ma match {
+          case Stop => annihilate(ma, mb, f())
+          case Emit(a, next) => annihilate(next(), mb, k(kl(a)))
           case Await(g, kg, fg) =>
             Await(g andThen ((m: Machine[A, AA]) => tee(m, mb)(t)),
                   \/.left(kg),
                   () => tee(fg(), mb)(t))
-        },
-        kr => mb match {
-          case Stop => tee(ma, mb)(f())
-          case Emit(b, next) => tee(ma, next())(k(kr(b)))
+        }
+        case \/-(kr) => mb match {
+          case Stop => annihilate(ma, mb, f())
+          case Emit(b, next) => annihilate(ma, next(), k(kr(b)))
           case Await(g, kg, fg) =>
             Await(g andThen ((m: Machine[B, BB]) => tee(ma, m)(t)),
                   \/.right(kg),
                   () => tee(ma, fg())(t))
         }
-      )
+      }
+    }
+    annihilate(ma, mb, t)
   }
 
   /** Combines two inputs into one. */
