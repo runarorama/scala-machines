@@ -4,9 +4,11 @@ import scalaz.Scalaz._
 
 object Test {
   def main(args: Array[String]): Unit = {
+/*
     import Machine._
     import Plan._
     import Process._
+*/
     import Tee._
     import Source._
 

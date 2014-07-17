@@ -4,7 +4,6 @@
 package com.clarifi.machines
 
 import scalaz._
-import scalaz.syntax.arrow._
 import Scalaz._
 import \/._
 

@@ -4,8 +4,6 @@
 package com.clarifi.machines
 
 import scalaz._
-import scalaz.syntax.monoid._
-import scalaz.syntax.monad._
 
 /**
  * A `Procedure` is a `Machine` together with a driver for driving

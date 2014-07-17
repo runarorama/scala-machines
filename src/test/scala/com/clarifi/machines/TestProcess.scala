@@ -1,9 +1,6 @@
 package com.clarifi.machines
 
-import scalaz.Id._
 import scalaz.std.list._
-import scalaz.std.stream._
-import scalaz.syntax.foldable._
 
 import org.scalacheck.{Properties, Prop, Gen}
 import Prop._

@@ -2,7 +2,6 @@ package com.clarifi.machines
 
 object Wye {
   import Machine._
-  import Process._
 
   /** Connects the output of two processes into a `Wye`. */
   def wye[A, AA, B, BB, O](pa: Process[A, AA],
