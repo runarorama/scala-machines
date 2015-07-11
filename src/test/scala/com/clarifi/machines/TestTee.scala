@@ -6,6 +6,7 @@ import org.scalacheck.{Gen, Properties, Prop}
 import Prop._
 import com.clarifi.machines.Tee._
 import com.clarifi.machines.Source._
+import scalaz.std.anyVal._
 
 object TestTee extends Properties("Tee") {
   val q1 = Source(List(("3", 1), ("5", 2), ("7", 2))).idProcedure

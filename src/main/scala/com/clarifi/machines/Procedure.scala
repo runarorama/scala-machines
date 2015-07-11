@@ -10,7 +10,7 @@ import scalaz._
  * that machine through the use of effects. A `Procedure[M, T]`
  * is conceptually a stream of elements of type `T` produced with effects described by `M`.
  */
-trait Procedure[M[+_], +A] { self =>
+trait Procedure[M[_], A] { self =>
   type K
 
   def map[B](f: A => B): Procedure[M, B] =
@@ -29,11 +29,11 @@ trait Procedure[M[+_], +A] { self =>
 
   def foreach(f: A => M[Unit]): M[Unit] = foldMapM(f)(Monoid instance ((_, b) => b, ()))
 
-  def execute[B >: A](implicit B: Monoid[B]): M[B] =
-    withDriver(d => d.drive(machine)(d.M.pure(_:B)))
+  def execute(implicit A: Monoid[A]): M[A] =
+    withDriver(d => d.drive(machine)(d.M.pure(_:A)))
 
-  def foldLeftM[B >: A, C](initial: C)(f: (C, B) => C): M[C] =
-    withDriver(d => d.driveLeft(machine)(d.M.pure(_:B))(initial)(f))
+  def foldLeftM[C](initial: C)(f: (C, A) => C): M[C] =
+    withDriver(d => d.driveLeft(machine)(d.M.pure(_:A))(initial)(f))
 
   def andThen[B](p: Process[A, B]): Procedure[M, B] =
     new Procedure[M, B] {

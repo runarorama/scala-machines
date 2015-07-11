@@ -6,18 +6,15 @@ version := "1.0"
 
 description := "Streaming I/O for Scala"
 
-libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.0.6"
+libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.1.3"
 
-libraryDependencies += "org.scalaz" %% "scalaz-effect" % "7.0.6"
+libraryDependencies += "org.scalaz" %% "scalaz-effect" % "7.1.3"
 
-libraryDependencies += {
-  val scalacheck = if (scalaVersion.value == "2.9.2") "1.10.0" else "1.11.3"
-  "org.scalacheck" %% "scalacheck" % scalacheck % "test"
-}
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.11.3" % "test"
 
-scalaVersion := "2.11.0"
+scalaVersion := "2.11.7"
 
-crossScalaVersions := Seq("2.9.2", "2.9.3", "2.10.3", "2.11.0")
+crossScalaVersions := Seq("2.9.3", "2.10.5", "2.11.7")
 
 scalacOptions ++= Seq("-deprecation", "-unchecked")
 

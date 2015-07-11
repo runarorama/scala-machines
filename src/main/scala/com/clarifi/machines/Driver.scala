@@ -12,7 +12,7 @@ import scalaz.Id._
  * A `Driver[K]` can step through a machine that requests inputs described by `K`
  * and have effects described by `M` at each step.
  */
-trait Driver[M[+_], K] { self =>
+trait Driver[M[_], K] { self =>
 
   implicit def M: Monad[M]
 

@@ -47,7 +47,7 @@ package object machines {
    */
   type Source[+O] = Machine[Nothing, O]
 
-  sealed class SourceW[+O](s: Source[O]) {
+  sealed class SourceW[O](s: Source[O]) {
     def idProcedure: Procedure[Id, O] = new Procedure[Id, O] {
       type K = Nothing
       def machine = s
@@ -55,7 +55,7 @@ package object machines {
         f(Driver.Id[Nothing](identity))
     }
 
-    def procedure[M[+_]: Monad]: Procedure[M, O] =
+    def procedure[M[_]: Monad]: Procedure[M, O] =
       new Procedure[M, O] {
         type K = Nothing
         def machine = s
