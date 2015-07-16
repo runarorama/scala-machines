@@ -2,7 +2,7 @@ import CrossVersion.partialVersion
 
 name := "machines"
 
-version := "1.0"
+version := "1.0.1"
 
 description := "Streaming I/O for Scala"
 
