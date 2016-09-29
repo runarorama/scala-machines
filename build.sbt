@@ -6,22 +6,21 @@ version := "1.0.1"
 
 description := "Streaming I/O for Scala"
 
-libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.1.3"
+libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.2.6"
 
-libraryDependencies += "org.scalaz" %% "scalaz-effect" % "7.1.3"
+libraryDependencies += "org.scalaz" %% "scalaz-effect" % "7.2.6"
 
-libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.11.3" % "test"
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.2" % "test"
 
-scalaVersion := "2.11.7"
+scalaVersion := "2.11.8"
 
-crossScalaVersions := Seq("2.9.3", "2.10.5", "2.11.7")
+crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.0-RC1")
 
 scalacOptions ++= Seq("-deprecation", "-unchecked")
 
 scalacOptions ++= {
   val non29 = Seq("-feature", "-language:implicitConversions", "-language:higherKinds", "-language:existentials", "-language:postfixOps")
   partialVersion(scalaVersion.value) match {
-    case Some((2, 9)) => Seq("-Ydependent-method-types")
     case Some((2, 10)) => non29
     case sv => non29 ++ Seq("-Ywarn-unused-import")
   }
